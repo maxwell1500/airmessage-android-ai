@@ -79,9 +79,9 @@ import java.util.stream.IntStream;
 public class NewMessage extends AppCompatCompositeActivity {
 	//Creating the constants
 	private static final int menuIdentifierConfirmParticipants = 0;
-	
+
 	private static final int permissionRequestContacts = 0;
-	
+
 	private static final MessageServiceDescription[] availableServiceArray = BuildConfig.DEBUG ? new MessageServiceDescription[]{
 			new MessageServiceDescription(R.drawable.message_push, R.string.title_imessage, R.color.colorPrimary, ServiceHandler.appleBridge, ServiceType.appleMessage, true),
 			new MessageServiceDescription(R.drawable.message_bridge, R.string.title_textmessageforwarding, R.color.colorMessageTextMessageForwarding, ServiceHandler.appleBridge, ServiceType.appleSMS, false),
@@ -93,17 +93,17 @@ public class NewMessage extends AppCompatCompositeActivity {
 			new MessageServiceDescription(R.drawable.message_sms, R.string.title_textmessage, R.color.colorMessageTextMessage, ServiceHandler.systemMessaging, ServiceType.systemSMS, false),
 			//new MessageServiceDescription(R.drawable.message_plus, R.string.title_rcs, false, -1, R.color.colorMessageRCS, ConversationInfo.serviceHandlerSystemMessaging, ConversationInfo.serviceTypeSystemRCS, false),
 	};
-	
+
 	//Creating the view model and plugin values
 	private ActivityViewModel viewModel;
-	
+
 	private final PluginQNavigation pluginQNavigation;
 	private final PluginConnectionService pluginCS;
 	private final PluginRXDisposable pluginRXCD;
-	
+
 	//Creating the state values
 	private boolean serviceSelectorAvailable;
-	
+
 	//Creating the view values
 	private ViewGroup recipientListGroup;
 	private MenuItem confirmMenuItem;
@@ -111,15 +111,15 @@ public class NewMessage extends AppCompatCompositeActivity {
 	private ImageButton recipientInputToggle;
 	private RecyclerView contactListView;
 	private ContactsRecyclerAdapter contactsListAdapter;
-	
+
 	private ViewGroup groupMessagePermission;
 	private ViewGroup groupMessageError;
 	//private ListView contactListView;
 	//private ListAdapter contactsListAdapter;
-	
+
 	private final ServiceChipData[] serviceChipDataArray = new ServiceChipData[availableServiceArray.length];
 	private ServiceChipData currentActiveServiceChip = null;
-	
+
 	private final Observer<Integer> contactStateObserver = state -> {
 		switch(state) {
 			case ActivityViewModel.contactStateReady:
@@ -139,21 +139,21 @@ public class NewMessage extends AppCompatCompositeActivity {
 				break;
 		}
 	};
-	
+
 	//Creating the listener values
 	private final TextWatcher recipientInputTextWatcher = new TextWatcher() {
 		@Override
 		public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-		
+
 		@Override
 		public void onTextChanged(CharSequence s, int start, int before, int count) {
 			//Filtering the list
 			contactsListAdapter.filterList(s.toString());
 		}
-		
+
 		@Override
 		public void afterTextChanged(Editable s) {
-		
+
 		}
 	};
 	//Creating the retained fragment values
@@ -162,19 +162,19 @@ public class NewMessage extends AppCompatCompositeActivity {
 		public boolean onKey(View v, int keyCode, KeyEvent event) {
 			//Returning if the event is not a key down
 			if(event.getAction() != KeyEvent.ACTION_DOWN) return false;
-			
+
 			//Checking if the key is the delete key
 			if(keyCode == KeyEvent.KEYCODE_DEL) {
 				//Checking if the cursor is at the start and there are chips
 				if(recipientInput.getSelectionStart() == 0 && recipientInput.getSelectionEnd() == 0 && !viewModel.userChips.isEmpty()) {
 					//Removing a chip
 					removeChip(viewModel.userChips.get(viewModel.userChips.size() - 1));
-					
+
 					//Returning true
 					return true;
 				}
 			}
-			
+
 			//Returning false
 			return false;
 		}
@@ -186,76 +186,76 @@ public class NewMessage extends AppCompatCompositeActivity {
 			if(actionId == EditorInfo.IME_ACTION_DONE) {
 				//Getting the string
 				String cleanString = recipientInput.getText().toString().trim();
-				
+
 				//Checking if the string passes validation
 				if(AddressHelper.validateAddress(cleanString)) {
 					//Adding a chip
 					addChip(new ContactChip(NewMessage.this, cleanString, AddressHelper.normalizeAddress(cleanString), NewMessage.this::removeChip));
-					
+
 					//Clearing the text input
 					recipientInput.setText("");
 				}
-				
+
 				//Returning true
 				return true;
 			}
-			
+
 			//Returning false
 			return false;
 		}
 	};
-	
+
 	public NewMessage() {
 		addPlugin(pluginQNavigation = new PluginQNavigation());
 		addPlugin(pluginCS = new PluginConnectionService());
 		addPlugin(pluginRXCD = new PluginRXDisposable());
 	}
-	
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		//Calling the super method
 		super.onCreate(savedInstanceState);
-		
+
 		//Reading the launch arguments
 		final String targetText = getIntent().getStringExtra(Messaging.intentParamDataText);
 		final ClipData targetClipData;
 		if(getIntent().getBooleanExtra(Messaging.intentParamDataFile, false)) targetClipData = getIntent().getClipData();
 		else targetClipData = null;
-		
+
 		//Setting the content view
 		setContentView(R.layout.activity_newmessage);
-		
+
 		//Configuring the toolbar
 		setSupportActionBar(findViewById(R.id.toolbar));
 		getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-		
+
 		//Getting the views
 		recipientListGroup = findViewById(R.id.group_recipientlist);
 		recipientInput = findViewById(R.id.input_recipients);
 		recipientInputToggle = findViewById(R.id.button_recipients);
 		contactListView = findViewById(R.id.list_contacts);
-		
+
 		groupMessagePermission = findViewById(R.id.group_permission);
 		groupMessageError = findViewById(R.id.group_error);
-		
+
 		//Enforcing the maximum content width
 		WindowHelper.enforceContentWidthView(getResources(), contactListView);
-		
+
 		//Setting the list padding
 		PluginQNavigation.setViewForInsets(findViewById(android.R.id.content), contactListView);
-		
+
 		//Configuring the AMOLED theme
 		if(ThemeHelper.shouldUseAMOLED(this)) setDarkAMOLED();
-		
+
 		//Setting the status bar color
 		PlatformHelper.updateChromeOSStatusBar(this);
-		
+
 		//Adding the input listeners
 		recipientInput.addTextChangedListener(recipientInputTextWatcher);
 		recipientInput.setOnKeyListener(recipientInputOnKeyListener);
 		recipientInput.setOnEditorActionListener(recipientInputOnActionListener);
 		recipientInput.requestFocus();
-		
+
 		//Getting the view model
 		viewModel = new ViewModelProvider(this, new ViewModelProvider.Factory() {
 			@NonNull
@@ -264,7 +264,7 @@ public class NewMessage extends AppCompatCompositeActivity {
 				return (T) new ActivityViewModel(getApplication(), targetText, targetClipData);
 			}
 		}).get(ActivityViewModel.class);
-		
+
 		//Registering the observers
 		viewModel.contactState.observe(this, contactStateObserver);
 		viewModel.loadingState.observe(this, value -> setActivityState(!value, true));
@@ -273,10 +273,10 @@ public class NewMessage extends AppCompatCompositeActivity {
 			finish();
 		});
 		pluginRXCD.activity().add(viewModel.contactListSubject.subscribe(update -> update.updateAdapter(contactsListAdapter)));
-		
+
 		//Restoring the input bar
 		restoreInputBar();
-		
+
 		//Configuring the list
 		contactsListAdapter = new ContactsRecyclerAdapter(this, viewModel.contactList, (address) -> {
 			//Adding the chip
@@ -287,11 +287,11 @@ public class NewMessage extends AppCompatCompositeActivity {
 		});
 		contactListView.setItemAnimator(null);
 		contactListView.setAdapter(contactsListAdapter);
-		
+
 		if(serviceSelectorAvailable = Preferences.getPreferenceTextMessageIntegration(this)) {
 			//Building the service selector
 			buildServiceSelector();
-			
+
 			//Updating the list filter
 			contactsListAdapter.setFilterPhoneOnly(!viewModel.currentService.serviceSupportsEmail);
 		} else {
@@ -299,21 +299,21 @@ public class NewMessage extends AppCompatCompositeActivity {
 			findViewById(R.id.group_service).setVisibility(View.GONE);
 		}
 	}
-	
+
 	void setDarkAMOLED() {
 		ThemeHelper.setActivityAMOLEDBase(this);
 		findViewById(R.id.appbar).setBackgroundColor(ColorConstants.colorAMOLED);
 	}
-	
+
 	void setDarkAMOLEDSamsung() {
 		ThemeHelper.setActivityAMOLEDBase(this);
 		findViewById(R.id.appbar).setBackgroundColor(ColorConstants.colorAMOLED);
-		
+
 		contactListView.setBackgroundResource(R.drawable.background_amoledsamsung);
 		contactListView.setClipToOutline(true);
 		contactListView.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
 	}
-	
+
 	private void restoreInputBar() {
 		//Restoring the input type
 		if(viewModel.recipientInputAlphabetical) {
@@ -323,7 +323,7 @@ public class NewMessage extends AppCompatCompositeActivity {
 			recipientInput.setInputType(InputType.TYPE_CLASS_PHONE);
 			recipientInputToggle.setImageResource(R.drawable.keyboard_outlined);
 		}
-		
+
 		//Restoring the chips
 		if(viewModel.userChips.isEmpty()) {
 			//Setting the hint
@@ -331,7 +331,7 @@ public class NewMessage extends AppCompatCompositeActivity {
 		} else {
 			//Removing the hint
 			recipientInput.setHint("");
-			
+
 			//Adding the views
 			int chipIndex = 0;
 			for(ContactChip chip : viewModel.userChips) {
@@ -341,90 +341,90 @@ public class NewMessage extends AppCompatCompositeActivity {
 			}
 		}
 	}
-	
+
 	private void buildServiceSelector() {
 		//Getting the view group
 		ViewGroup viewGroup = findViewById(R.id.list_service);
-		
+
 		for(int i = 0; i < availableServiceArray.length; i++) {
 			//Getting the service description
 			MessageServiceDescription serviceDescription = availableServiceArray[i];
-			
+
 			//Creating the service chip view
 			ViewGroup chipView = (ViewGroup) getLayoutInflater().inflate(R.layout.listitem_servicechip, viewGroup, false);
 			TextView label = chipView.findViewById(R.id.label);
 			ImageView icon = chipView.findViewById(R.id.icon);
-			
+
 			//Creating the service chip data
 			ServiceChipData serviceChipData = new ServiceChipData(serviceDescription, chipView, label, icon);
 			serviceChipDataArray[i] = serviceChipData;
-			
+
 			//Setting the label text and icon
 			label.setText(serviceDescription.title);
 			icon.setImageResource(serviceDescription.icon);
-			
+
 			//Checking if this is the currently selected service
 			if(serviceDescription == viewModel.currentService) {
 				//Showing the label
 				label.setVisibility(View.VISIBLE);
-				
+
 				//Coloring the label
 				label.setTextColor(getResources().getColor(serviceDescription.color, null));
-				
+
 				//Coloring the icon
 				icon.setImageTintList(ColorStateList.valueOf(getResources().getColor(serviceDescription.color, null)));
-				
+
 				//Setting the view as the current active view
 				currentActiveServiceChip = serviceChipData;
 			} else {
 				//Hiding the label
 				label.setVisibility(View.GONE);
-				
+
 				//Coloring the icon
 				icon.setImageTintList(ColorStateList.valueOf(ResourceHelper.resolveColorAttr(this, android.R.attr.colorControlNormal)));
 			}
-			
+
 			//Setting the click listener
 			chipView.setOnClickListener(view -> {
 				//Ignoring if this is the currently active service
 				if(currentActiveServiceChip == serviceChipData) return;
-				
+
 				//Starting a transition
 				TransitionManager.beginDelayedTransition(findViewById(R.id.list_service));
-				
+
 				//Disabling the old view
 				currentActiveServiceChip.getLabel().setVisibility(View.GONE);
 				currentActiveServiceChip.getLabel().setTextColor(ColorStateList.valueOf(ResourceHelper.resolveColorAttr(this, android.R.attr.textColorSecondary)));
 				currentActiveServiceChip.getIcon().setImageTintList(ColorStateList.valueOf(ResourceHelper.resolveColorAttr(this, android.R.attr.colorControlNormal)));
-				
+
 				//Enabling the new view
 				label.setVisibility(View.VISIBLE);
 				label.setTextColor(getResources().getColor(serviceDescription.color, null));
 				icon.setImageTintList(ColorStateList.valueOf(getResources().getColor(serviceDescription.color, null)));
-				
+
 				//Setting the new selected service view
 				currentActiveServiceChip = serviceChipData;
-				
+
 				//Setting the selected service
 				viewModel.currentService = currentActiveServiceChip.getServiceDescription();
-				
+
 				//Updating the list
 				contactsListAdapter.setFilterPhoneOnly(!serviceDescription.serviceSupportsEmail);
 			});
-			
+
 			//textView.setCompoundDrawableTintList(ColorStateList.valueOf(getResources().getColor(serviceDescription.color, null)));
 			//textView.setCompoundDrawableTintList(ColorStateList.valueOf(Constants.resolveColorAttr(this, android.R.attr.textColorSecondary)));
-			
+
 			//Adding the view
 			viewGroup.addView(chipView);
 		}
 	}
-	
+
 	private void setPhoneServiceState(boolean enabled) {
 		for(ServiceChipData service : serviceChipDataArray) {
 			//Ignoring services that support email
 			if(service.getServiceDescription().serviceSupportsEmail) continue;
-			
+
 			//Updating the service state
 			if(enabled) {
 				service.getView().setClickable(true);
@@ -435,7 +435,7 @@ public class NewMessage extends AppCompatCompositeActivity {
 			}
 		}
 	}
-	
+
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		//Creating the "confirm participants" menu button
@@ -443,50 +443,50 @@ public class NewMessage extends AppCompatCompositeActivity {
 		confirmMenuItem.setIcon(R.drawable.next);
 		//confirmMenuItem.setIconTintList(ColorStateList.valueOf(Constants.resolveColorAttr(this, android.R.attr.colorControlNormal)));
 		confirmMenuItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-		
+
 		//Hiding the menu button
 		confirmMenuItem.setVisible(!viewModel.userChips.isEmpty());
 		if(viewModel.loadingState.getValue() == Boolean.TRUE) confirmMenuItem.setEnabled(false);
-		
+
 		//Returning true
 		return true;
 	}
-	
+
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch(item.getItemId()) {
 			case android.R.id.home: //Up button
 				//Finishing the activity
 				finish();
-				
+
 				//Returning true
 				return true;
 			case menuIdentifierConfirmParticipants: //Confirm participants button
 				//Confirming the participants
 				confirmParticipants();
-				
+
 				//Returning true
 				return true;
 		}
-		
+
 		//Returning false
 		return false;
 	}
-	
+
 	@Override
 	public void onRequestPermissionsResult(final int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-		
+
 		//Returning if there were no grant results
 		if(grantResults.length == 0) return;
-		
+
 		//Checking if the request code is contacts access
 		if(requestCode == permissionRequestContacts) {
 			//Checking if the result is a success
 			if(grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 				//Loading the contacts
 				viewModel.loadContacts();
-				
+
 				//Starting the update listener
 				MainApplication.getInstance().registerContactsListener();
 			}
@@ -504,52 +504,52 @@ public class NewMessage extends AppCompatCompositeActivity {
 			}
 		}
 	}
-	
+
 	public void toggleInputType(View view) {
 		//Saving the selection
 		int selectionStart = recipientInput.getSelectionStart();
 		int selectionEnd = recipientInput.getSelectionEnd();
-		
+
 		//Checking if the input is alphabetical
 		if(viewModel.recipientInputAlphabetical) {
 			//Setting the input type
 			recipientInput.setInputType(InputType.TYPE_CLASS_PHONE);
 			//recipientInput.setImeOptions(EditorInfo.IME_ACTION_DONE);
-			
+
 			//Setting the toggle input type icon
 			((ImageButton) view).setImageResource(R.drawable.keyboard_outlined);
-			
+
 			//Setting the alphabetical input variable
 			viewModel.recipientInputAlphabetical = false;
 		} else {
 			//Setting the input type
 			recipientInput.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
 			//recipientInput.setImeOptions(EditorInfo.IME_ACTION_DONE);
-			
+
 			//Setting the toggle input type icon
 			((ImageButton) view).setImageResource(R.drawable.dialpad);
-			
+
 			//Setting the alphabetical input variable
 			viewModel.recipientInputAlphabetical = true;
 		}
-		
+
 		//Restoring the selection
 		recipientInput.setSelection(selectionStart, selectionEnd);
 	}
-	
+
 	private void confirmParticipants() {
 		//Disabling the UI
 		//getWindow().setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
-		
+
 		//Passing the event to the view model
 		viewModel.confirmParticipants(getRecipientAddressList(), pluginCS.getConnectionManager());
 	}
-	
+
 	public void onClickRequestContacts(View view) {
 		//Requesting the permission
 		requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, permissionRequestContacts);
 	}
-	
+
 	public void onClickRetryLoad(View view) {
 		if(viewModel.contactState.getValue() == ActivityViewModel.contactStateFailed) viewModel.loadContacts();
 	}
@@ -563,18 +563,18 @@ public class NewMessage extends AppCompatCompositeActivity {
 				.sorted()
 				.collect(Collectors.toList());
 	}
-	
+
 	private void setActivityState(boolean enabled, boolean animate) {
 		//Disabling the button
 		if(confirmMenuItem != null) confirmMenuItem.setEnabled(enabled);
-		
+
 		//Disabling the inputs
 		recipientInput.setEnabled(enabled);
 		recipientInputToggle.setEnabled(enabled);
-		
+
 		//Disabling the list
 		contactListView.setEnabled(enabled);
-		
+
 		View scrim = findViewById(R.id.scrim_content);
 		LinearProgressIndicator progressBar  = findViewById(R.id.progressbar_content);
 		if(animate) {
@@ -597,7 +597,7 @@ public class NewMessage extends AppCompatCompositeActivity {
 			}
 		}
 	}
-	
+
 	private void addChip(ContactChip chip) {
 		//Making sure we aren't adding the same chip twice
 		if(viewModel.userChips.stream()
@@ -609,26 +609,26 @@ public class NewMessage extends AppCompatCompositeActivity {
 		if(viewModel.userChips.isEmpty()) {
 			recipientInput.setHint("");
 		}
-		
+
 		//Adding the chip to the list
 		viewModel.userChips.add(chip);
-		
+
 		//Adding the view
 		recipientListGroup.addView(chip.getView(), viewModel.userChips.size() - 1);
-		
+
 		//Setting the confirm button as visible
 		confirmMenuItem.setVisible(true);
-		
+
 		//Checking if the service selector is available, and an email address is being added
 		if(serviceSelectorAvailable && AddressHelper.validateEmail(chip.getAddress())) {
 			//Disabling relevant services
 			if(viewModel.participantsEmailCount == 0) setPhoneServiceState(false);
-			
+
 			//Adding to the email count
 			viewModel.participantsEmailCount++;
 		}
 	}
-	
+
 	private void removeChip(ContactChip chip) {
 		//Ignore if we're loading
 		if(viewModel.loadingState.getValue() == Boolean.TRUE) {
@@ -637,74 +637,74 @@ public class NewMessage extends AppCompatCompositeActivity {
 
 		//Removing the chip from the list
 		viewModel.userChips.remove(chip);
-		
+
 		//Removing the view
 		recipientListGroup.removeView(chip.getView());
-		
+
 		//Checking if there are no more chips
 		if(viewModel.userChips.isEmpty()) {
 			//Setting the hint
 			recipientInput.setHint(R.string.imperative_userinput);
-			
+
 			//Setting the confirm button as invisible
 			confirmMenuItem.setVisible(false);
 		}
-		
+
 		//Checking if the service selector is available. and an email address is being removed
 		if(serviceSelectorAvailable && AddressHelper.validateEmail(chip.getAddress())) {
 			//Taking from the email count
 			viewModel.participantsEmailCount--;
-			
+
 			//Re-enabling disabled services if there are no more emails
 			if(viewModel.participantsEmailCount == 0) setPhoneServiceState(true);
 		}
 	}
-	
+
 	public static class ActivityViewModel extends AndroidViewModel {
 		//Creating the reference values
 		static final int contactStateIdle = 0;
 		static final int contactStateReady = 1;
 		static final int contactStateNoAccess = 2;
 		static final int contactStateFailed = 3;
-		
+
 		//Creating the state values
 		final MutableLiveData<Integer> contactState = new MutableLiveData<>(); //The current state of the activity
 		final MutableLiveData<Boolean> loadingState = new MutableLiveData<>(); //Whether the activity is loading due to a participant confirmation
 		final MutableLiveData<Intent> completionLaunchIntent = new MutableLiveData<>(); //An intent to launch to complete this activity
 		final PublishSubject<ContactListReactiveUpdate> contactListSubject = PublishSubject.create(); //A subject to emit updates to the contacts list
 		boolean recipientInputAlphabetical = true; //Whether the recipient input field is in alphabetical or numeric mode
-		
+
 		//Creating the input values
 		private final List<ContactChip> userChips = new ArrayList<>();
 		private int participantsEmailCount = 0;
-		
+
 		//Creating the fill values
 		private final String targetText;
 		private final ClipData targetClipData;
-		
+
 		//Creating the other values
 		MessageServiceDescription currentService = availableServiceArray[0];
 		final List<ContactInfo> contactList = new ArrayList<>();
-		
+
 		//Creating the task values
 		private final CompositeDisposable compositeDisposable = new CompositeDisposable();
-		
+
 		public ActivityViewModel(@NonNull Application application, String targetText, ClipData targetClipData) {
 			super(application);
-			
+
 			//Setting the fill values
 			this.targetText = targetText;
 			this.targetClipData = targetClipData;
-			
+
 			//Loading the data
 			loadContacts();
 		}
-		
+
 		@Override
 		protected void onCleared() {
 			compositeDisposable.clear();
 		}
-		
+
 		@SuppressLint("StaticFieldLeak")
 		void loadContacts() {
 			//Aborting if contacts cannot be used
@@ -712,10 +712,10 @@ public class NewMessage extends AppCompatCompositeActivity {
 				contactState.setValue(contactStateNoAccess);
 				return;
 			}
-			
+
 			//Updating the state
 			contactState.setValue(contactStateReady);
-			
+
 			//Loading the contacts
 			ContactsTask.loadContacts(getApplication()).map(contactPart -> {
 				//Trying to match a contact in the list
@@ -723,37 +723,37 @@ public class NewMessage extends AppCompatCompositeActivity {
 				int matchingContactIndex = IntStream.range(0, contactListSize)
 						.map(i -> contactListSize - i - 1)
 						.filter(i -> contactList.get(i).getIdentifier() == contactPart.getID()).findAny().orElse(-1);
-				
+
 				if(matchingContactIndex == -1) {
 					//Add a new contact
 					contactList.add(new ContactInfo(contactPart.getID(), contactPart.getName(), new ArrayList<>(Collections.singleton(contactPart.getAddress()))));
-					
+
 					return new ContactListReactiveUpdate.Addition(contactListSize);
 				} else {
 					//Updating the contact
 					contactList.get(matchingContactIndex).addAddress(contactPart.getAddress());
-					
+
 					return new ContactListReactiveUpdate.Change(matchingContactIndex);
 				}
 			}).subscribe(contactListSubject);
 		}
-		
+
 		void confirmParticipants(List<String> participants, @Nullable ConnectionManager connectionManager) {
 			//Setting the state
 			loadingState.setValue(true);
-			
+
 			//Pair: ConversationInfo - the conversation to launch, Boolean - whether to emit an update to notify listeners that this conversation is newly created
 			Single<Pair<ConversationInfo, Boolean>> conversationSingle;
-			
+
 			//Checking if if the current service handler is AirMessage bridge
 			if(currentService.serviceHandler == ServiceHandler.appleBridge) {
 				@ServiceType final String serviceType = currentService.serviceType;
-				
+
 				//Creates the unlinked conversation locally in the event that the server cannot be reached
 				Single<Pair<ConversationInfo, Boolean>> errorConversationSingle = Single.fromCallable(
 						() -> DatabaseManager.getInstance().addRetrieveClientCreatedConversationInfo(getApplication(), participants, ServiceHandler.appleBridge, serviceType)).
 						subscribeOn(Schedulers.single()).observeOn(AndroidSchedulers.mainThread());
-				
+
 				if(connectionManager == null) {
 					//Create an unlinked conversation locally
 					conversationSingle = errorConversationSingle;
@@ -771,24 +771,24 @@ public class NewMessage extends AppCompatCompositeActivity {
 					conversationSingle = Single.fromCallable(() -> {
 						//Finding or creating a matching conversation in Android's message database
 						long threadID = Telephony.Threads.getOrCreateThreadId(getApplication(), new HashSet<>(participants));
-						
+
 						//Finding or creating a matching conversation in AirMessage's database
 						ConversationInfo conversationInfo = DatabaseManager.getInstance().findConversationByExternalID(getApplication(), threadID, ServiceHandler.systemMessaging, ServiceType.systemSMS);
-						
+
 						//Creating a new conversation if no existing conversation was found
 						if(conversationInfo == null) {
 							//Creating the conversation
 							int conversationColor = ConversationColorHelper.getDefaultConversationColor();
 							List<MemberInfo> coloredMembers = ConversationColorHelper.getColoredMembers(participants, conversationColor);
 							conversationInfo = new ConversationInfo(-1, null, threadID, ConversationState.ready, ServiceHandler.systemMessaging, ServiceType.systemSMS, conversationColor, coloredMembers, null);
-							
+
 							//Writing the conversation to disk
 							DatabaseManager.getInstance().addConversationInfo(conversationInfo);
 							ChatCreateAction chatCreateAction = DatabaseManager.getInstance().addConversationCreatedMessage(conversationInfo.getLocalID());
-							
+
 							//Setting the conversation preview
 							conversationInfo.setMessagePreview(new ConversationPreview.ChatCreation(chatCreateAction.getDate()));
-							
+
 							return new Pair<>(conversationInfo, true);
 						} else {
 							//Completing with the conversation
@@ -799,7 +799,7 @@ public class NewMessage extends AppCompatCompositeActivity {
 					throw new UnsupportedOperationException("Service type " + currentService.serviceType + " is not supported");
 				}
 			}
-			
+
 			compositeDisposable.add(
 					conversationSingle.doOnSuccess(pair -> {
 						//Notifying listeners of the new conversation
@@ -812,13 +812,13 @@ public class NewMessage extends AppCompatCompositeActivity {
 					}, error -> {
 						//Enabling the UI
 						loadingState.setValue(false);
-						
+
 						//Showing an error toast
 						Toast.makeText(getApplication(), R.string.message_serverstatus_internalexception, Toast.LENGTH_SHORT).show();
 					})
 			);
 		}
-		
+
 		/**
 		 * Launches the messaging activity for specified conversation ID
 		 * @param context The context to use
@@ -829,30 +829,30 @@ public class NewMessage extends AppCompatCompositeActivity {
 			Intent intent = new Intent(context, Messaging.class);
 			intent.putExtra(Messaging.intentParamTargetID, conversationID);
 			intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-			
+
 			//Setting the fill data
 			if(targetText != null) intent.putExtra(Messaging.intentParamDataText, targetText);
 			if(targetClipData != null) {
 				intent.putExtra(Messaging.intentParamDataFile, true);
 				intent.setClipData(targetClipData);
 			}
-			
+
 			//Launching the activity
 			completionLaunchIntent.setValue(intent);
 		}
 	}
-	
+
 	private static class MessageServiceDescription {
 		//Display values
 		@DrawableRes final int icon;
 		@StringRes final int title;
 		@ColorRes final int color;
-		
+
 		//Service values
 		@ServiceHandler final int serviceHandler;
 		@ServiceType final String serviceType;
 		final boolean serviceSupportsEmail; //Whether this service supports email addresses
-		
+
 		MessageServiceDescription(@DrawableRes int icon, @StringRes int title, @ColorRes int color, @ServiceHandler int serviceHandler, @ServiceType String serviceType, boolean serviceSupportsEmail) {
 			this.icon = icon;
 			this.title = title;
@@ -862,32 +862,32 @@ public class NewMessage extends AppCompatCompositeActivity {
 			this.serviceSupportsEmail = serviceSupportsEmail;
 		}
 	}
-	
+
 	private static class ServiceChipData {
 		private final MessageServiceDescription serviceDescription;
 		private final ViewGroup view;
 		private final TextView label;
 		private final ImageView icon;
-		
+
 		public ServiceChipData(MessageServiceDescription serviceDescription, ViewGroup view, TextView label, ImageView icon) {
 			this.serviceDescription = serviceDescription;
 			this.view = view;
 			this.label = label;
 			this.icon = icon;
 		}
-		
+
 		public MessageServiceDescription getServiceDescription() {
 			return serviceDescription;
 		}
-		
+
 		public ViewGroup getView() {
 			return view;
 		}
-		
+
 		public TextView getLabel() {
 			return label;
 		}
-		
+
 		public ImageView getIcon() {
 			return icon;
 		}

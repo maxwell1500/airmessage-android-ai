@@ -56,92 +56,92 @@ public class MediaViewer extends AppCompatActivity {
 	//Creating the constants
 	public static final String intentParamIndex = "index";
 	public static final String intentParamDataList = "dataList";
-	
+
 	private static final String INSTANCEPARAM_RESTORE = "restore";
-	
+
 	//Creating the view values
 	private ViewPager2 viewPager;
 	private RecyclerAdapter recyclerAdapter;
 	private Toolbar toolbar;
 	private View scrimTop;
 	private View scrimBottom;
-	
+
 	//Creating the state values
 	private boolean uiVisible = true;
-	
+
 	private AttachmentInfo selectedItem;
-	
+
 	private boolean autoPlay = false;
-	
+
 	private File targetExportFile = null;
-	
+
 	private final Rect systemInsetsRect = new Rect();
 	private final List<Consumer<Rect>> systemInsetsRectUpdateListeners = new ArrayList<>();
-	
+
 	//Creating the callbacks
 	private final ActivityResultLauncher<String> saveFileLauncher = registerForActivityResult(new ActivityResultContracts.CreateDocument(), uri -> {
 		if(uri == null) return;
 		ExternalStorageHelper.exportFile(this, targetExportFile, uri);
 	});
-	
+
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
 		//Calling the super method
 		super.onCreate(savedInstanceState);
-		
+
 		//Configuring the system UI
 		getWindow().getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-		
+
 		//Setting the layout
 		setContentView(R.layout.activity_mediaviewer);
-		
+
 		//Getting the views
 		RoundedFrameLayout frameRounder = findViewById(R.id.frame_round);
-		
+
 		viewPager = frameRounder.findViewById(R.id.viewpager);
 		toolbar = findViewById(R.id.toolbar);
 		scrimTop = findViewById(R.id.scrim_top);
 		scrimBottom = findViewById(R.id.scrim_bottom);
-		
+
 		//Setting and configuring the app bar
 		setSupportActionBar(toolbar);
 		getSupportActionBar().setDisplayShowTitleEnabled(false);
 		getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 		getSupportActionBar().setHomeAsUpIndicator(R.drawable.arrow_back);
-		
+
 		//Restoring the activity data
 		if(savedInstanceState == null) {
 			autoPlay = true;
 		} else {
 			autoPlay = savedInstanceState.getBoolean(INSTANCEPARAM_RESTORE, true);
 		}
-		
+
 		//Getting the activity parameters
 		int selectionIndex = getIntent().getIntExtra(intentParamIndex, 0);
 		List<AttachmentInfo> itemList = getIntent().getParcelableArrayListExtra(intentParamDataList);
-		
+
 		ViewCompat.setOnApplyWindowInsetsListener(toolbar, (view, windowInsets) -> {
 			Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-			
+
 			//Updating the toolbar
 			toolbar.setPadding(insets.left, insets.top, insets.right, toolbar.getPaddingBottom());
-			
+
 			//Updating the scrims
 			toolbar.post(() -> {
 				scrimTop.getLayoutParams().height = insets.top + toolbar.getHeight();
 			});
 			scrimBottom.getLayoutParams().height = insets.bottom * 2;
-			
+
 			//Updating the rectangle
 			systemInsetsRect.left = insets.left;
 			systemInsetsRect.top = insets.top;
 			systemInsetsRect.right = insets.right;
 			systemInsetsRect.bottom = insets.bottom;
 			for(Consumer<Rect> listener : systemInsetsRectUpdateListeners) listener.accept(systemInsetsRect);
-			
+
 			return WindowInsetsCompat.CONSUMED;
 		});
-		
+
 		//Initializing the view pager
 		viewPager.setAdapter(recyclerAdapter = new RecyclerAdapter(itemList));
 		viewPager.setCurrentItem(selectionIndex, false);
@@ -150,7 +150,7 @@ public class MediaViewer extends AppCompatActivity {
 			public void onPageSelected(int position) {
 				selectedItem = itemList.get(position);
 			}
-			
+
 			@Override
 			public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
 				if(positionOffsetPixels != 0) recyclerAdapter.pausePlayer();
@@ -158,38 +158,38 @@ public class MediaViewer extends AppCompatActivity {
 		});
 		selectedItem = itemList.get(selectionIndex);
 	}
-	
+
 	@Override
 	protected void onSaveInstanceState(@NonNull Bundle outState) {
 		super.onSaveInstanceState(outState);
 		outState.putBoolean(INSTANCEPARAM_RESTORE, true);
 	}
-	
+
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		//Inflating the menu resource
 		getMenuInflater().inflate(R.menu.menu_mediaviewer, menu);
-		
+
 		//Returning true
 		return true;
 	}
-	
+
 	@Override
 	protected void onPause() {
 		super.onPause();
-		
+
 		//Pausing the current video player
 		recyclerAdapter.pausePlayer();
 	}
-	
+
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		
+
 		//Releasing the recycler view data
 		recyclerAdapter.release();
 	}
-	
+
 	@Override
 	public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 		int itemId = item.getItemId();
@@ -205,16 +205,16 @@ public class MediaViewer extends AppCompatActivity {
 		}
 		return super.onOptionsItemSelected(item);
 	}
-	
+
 	private void toggleUI() {
 		if(uiVisible) hideUI();
 		else showUI();
 	}
-	
+
 	private void hideUI() {
 		if(!uiVisible) return;
 		uiVisible = false;
-		
+
 		//Hiding the views
 		ValueAnimator valueAnimator = ValueAnimator.ofFloat(1, 0);
 		valueAnimator.addUpdateListener(animator -> {
@@ -232,18 +232,18 @@ public class MediaViewer extends AppCompatActivity {
 			}
 		});
 		valueAnimator.start();
-		
+
 		//Enabling immersive mode
 		getWindow().getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility() | View.SYSTEM_UI_FLAG_IMMERSIVE | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
-		
+
 		//Hiding the recycler adapter views' UI
 		recyclerAdapter.hideLocalUI();
 	}
-	
+
 	private void showUI() {
 		if(uiVisible) return;
 		uiVisible = true;
-		
+
 		//Hiding the views
 		ValueAnimator valueAnimator = ValueAnimator.ofFloat(0, 1);
 		valueAnimator.addUpdateListener(animator -> {
@@ -261,92 +261,92 @@ public class MediaViewer extends AppCompatActivity {
 			}
 		});
 		valueAnimator.start();
-		
+
 		//Disabling immersive mode
 		getWindow().getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility() & ~(View.SYSTEM_UI_FLAG_IMMERSIVE | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION));
-		
+
 		//Show the recycler adapter views' UI
 		recyclerAdapter.showLocalUI();
 	}
-	
+
 	private boolean shareItem(AttachmentInfo attachment) {
 		//Getting the file mime type
 		String fileName = attachment.getFile().getName();
 		int substringStart = attachment.getFile().getName().lastIndexOf(".") + 1;
-		
+
 		//Returning if the file cannot be substringed
 		if(fileName.length() <= substringStart) return false;
-		
+
 		//Creating a new intent
 		Intent intent = new Intent();
-		
+
 		//Setting the intent action
 		intent.setAction(Intent.ACTION_SEND);
-		
+
 		//Creating a content URI
 		Uri content = FileProvider.getUriForFile(this, AttachmentStorageHelper.getFileAuthority(this), attachment.getFile());
-		
+
 		//Setting the intent file
 		intent.putExtra(Intent.EXTRA_STREAM, content);
-		
+
 		//Setting the type
 		intent.setType(attachment.getComputedContentType());
-		
+
 		//Starting the activity
 		startActivity(Intent.createChooser(intent, getResources().getText(R.string.action_sharemessage)));
-		
+
 		//Returning true
 		return true;
 	}
-	
+
 	private void saveItem(AttachmentInfo attachment) {
 		targetExportFile = attachment.getFile();
 		saveFileLauncher.launch(attachment.getComputedFileName());
 	}
-	
+
 	private class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 		private static final int viewTypeImage = 0;
 		private static final int viewTypeVideo = 1;
-		
+
 		private Player currentPlayer = null;
 		private final List<AttachmentInfo> itemList;
 		private final List<ExoPlayer> playerList = new ArrayList<>();
 		private final List<PlayerView> playerViewList = new ArrayList<>();
-		
+
 		RecyclerAdapter(List<AttachmentInfo> itemList) {
 			this.itemList = itemList;
-			
+
 			setHasStableIds(true);
 		}
-		
+
 		public void pausePlayer() {
 			if(currentPlayer != null) currentPlayer.setPlayWhenReady(false);
 		}
-		
+
 		public void release() {
 			for(ExoPlayer player : playerList) player.release();
 		}
-		
+
 		public void hideLocalUI() {
 			//Updating the video players
 			for(PlayerView playerView : playerViewList) playerView.hideController();
 		}
-		
+
 		public void showLocalUI() {
 			//Updating the video players
 			for(PlayerView playerView : playerViewList) playerView.showController();
 		}
-		
+
 		@Override
 		public int getItemCount() {
 			return itemList.size();
 		}
-		
+
 		@Override
 		public long getItemId(int position) {
 			return itemList.get(position).getLocalID();
 		}
-		
+
 		@Override
 		public int getItemViewType(int position) {
 			AttachmentInfo item = itemList.get(position);
@@ -354,7 +354,7 @@ public class MediaViewer extends AppCompatActivity {
 			else if(FileHelper.compareMimeTypes(item.getComputedContentType(), MIMEConstants.mimeTypeVideo)) return viewTypeVideo;
 			else throw new IllegalArgumentException("Unsupported item type provided: " + item.getComputedContentType());
 		}
-		
+
 		@NonNull
 		@Override
 		public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -367,15 +367,15 @@ public class MediaViewer extends AppCompatActivity {
 					throw new IllegalArgumentException("Unknown view type provided: " + viewType);
 			}
 		}
-		
+
 		@Override
 		public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
 			//Getting the item
 			AttachmentInfo item = itemList.get(position);
-			
+
 			boolean shouldAutoPlay = autoPlay && selectedItem == item;
 			if(shouldAutoPlay) autoPlay = false;
-			
+
 			switch(getItemViewType(position)) {
 				case viewTypeImage: {
 					//Loading the image
@@ -391,17 +391,17 @@ public class MediaViewer extends AppCompatActivity {
 				}
 			}
 		}
-		
+
 		class ImageViewHolder extends RecyclerView.ViewHolder {
 			final PhotoView imageView;
-			
+
 			ImageViewHolder(@NonNull View itemView) {
 				super(itemView);
 				imageView = (PhotoView) itemView;
-				
+
 				imageView.setOnPhotoTapListener((view, x, y) -> toggleUI());
 			}
-			
+
 			void loadImage(AttachmentInfo attachment) {
 				//Loading the image file with Glide
 				Glide.with(MediaViewer.this)
@@ -413,45 +413,45 @@ public class MediaViewer extends AppCompatActivity {
 							public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
 								return false;
 							}
-							
+
 							@Override
 							public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
 								if(resource instanceof GifDrawable) {
 									resource.setVisible(true, true);
 								}
-								
+
 								return false;
 							}
 						})
 						.into(imageView);
 			}
 		}
-		
+
 		class VideoViewHolder extends RecyclerView.ViewHolder {
 			final ExoPlayer player;
-			
+
 			VideoViewHolder(@NonNull View itemView) {
 				super(itemView);
-				
+
 				//Creating the player instance
 				player = new ExoPlayer.Builder(MediaViewer.this).build();
-				
+
 				//Adding the player to the list
 				playerList.add(player);
-				
+
 				//Linking the player to the player view
 				PlayerView playerView = itemView.findViewById(R.id.playerview);
 				playerView.setPlayer(player);
-				
+
 				//Adding the player view to the list
 				playerViewList.add(playerView);
-				
+
 				//Keeping the video player's UI in line with the activity's UI
 				playerView.setControllerVisibilityListener(visibility -> {
 					if(visibility == View.VISIBLE) showUI();
 					else hideUI();
 				});
-				
+
 				//Ensuring that the player control bar has appropriate margins, as not to fall behind the system bars
 				ViewGroup controlBar = playerView.findViewById(R.id.group_controlbar);
 				Consumer<Rect> insetsUpdateListener = rect -> {
@@ -462,7 +462,7 @@ public class MediaViewer extends AppCompatActivity {
 				};
 				insetsUpdateListener.accept(systemInsetsRect); //Updating immediately
 				systemInsetsRectUpdateListeners.add(insetsUpdateListener); //For future changes
-				
+
 				//Adding a listener to the player in order to keep track of which player is active
 				player.addListener(new Player.Listener() {
 					@Override
@@ -474,7 +474,7 @@ public class MediaViewer extends AppCompatActivity {
 					}
 				});
 			}
-			
+
 			void playVideo(File file, boolean autoPlay) {
 				player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)));
 				player.prepare();

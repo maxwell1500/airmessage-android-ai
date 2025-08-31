@@ -750,15 +750,15 @@ abstract class GeminiHelper protected constructor() {
     
     /**
      * Clean up enhanced message response by removing formatting artifacts
-     * Uses a simple but aggressive approach to remove all quotes
+     * NUCLEAR APPROACH - Remove all possible quote variants
      */
     private fun cleanEnhancedMessageResponse(response: String): String {
         var cleaned = response.trim()
         
-        // Remove common formatting labels and prefixes
+        // Remove common formatting labels and prefixes - MORE COMPREHENSIVE LIST
         val labelsToRemove = listOf(
             "Professional and Polished:",
-            "Casual and Friendly:",
+            "Casual and Friendly:", 
             "Enthusiastic and Engaging:",
             "Improved message:",
             "Enhanced message:",
@@ -769,43 +769,93 @@ abstract class GeminiHelper protected constructor() {
             "**Casual and Friendly:**",
             "**Enthusiastic and Engaging:**",
             "**Improved message:**",
-            "**Enhanced message:**"
+            "**Enhanced message:**",
+            "Improved:",
+            "Enhanced:",
+            "Corrected:",
+            "Result:",
+            "Output:",
+            "Response:"
         )
         
-        // Remove labels (case insensitive)
-        labelsToRemove.forEach { label ->
-            if (cleaned.startsWith(label, ignoreCase = true)) {
-                cleaned = cleaned.substring(label.length).trim()
+        // Remove labels (case insensitive) - MULTIPLE PASSES
+        repeat(3) {
+            labelsToRemove.forEach { label ->
+                if (cleaned.startsWith(label, ignoreCase = true)) {
+                    cleaned = cleaned.substring(label.length).trim()
+                }
             }
         }
         
-        // AGGRESSIVE QUOTE REMOVAL - Remove quotes but preserve contractions
-        // Remove all double quotes completely
-        cleaned = cleaned.replace("\"", "")  // Remove all double quotes
-        cleaned = cleaned.replace(""", "")   // Remove smart quotes
-        cleaned = cleaned.replace(""", "")   // Remove smart quotes
+        // NUCLEAR QUOTE REMOVAL - Remove ALL types of quotes everywhere
+        // Step 1: Remove ALL quotation characters completely
+        cleaned = cleaned.replace("\"", "")     // Double quotes
+        cleaned = cleaned.replace("'", "")      // Single quotes (all of them)
+        cleaned = cleaned.replace(""", "")      // Left smart quote
+        cleaned = cleaned.replace(""", "")      // Right smart quote  
+        cleaned = cleaned.replace("'", "")      // Left smart apostrophe
+        cleaned = cleaned.replace("'", "")      // Right smart apostrophe
+        cleaned = cleaned.replace("‚", "")      // Single low quote
+        cleaned = cleaned.replace("„", "")      // Double low quote
+        cleaned = cleaned.replace("‹", "")      // Single left angle quote
+        cleaned = cleaned.replace("›", "")      // Single right angle quote
+        cleaned = cleaned.replace("«", "")      // Double left angle quote
+        cleaned = cleaned.replace("»", "")      // Double right angle quote
+        cleaned = cleaned.replace("`", "")      // Backticks
+        cleaned = cleaned.replace("´", "")      // Acute accent
         
-        // For single quotes, be more careful to preserve contractions
-        // Remove single quotes that are likely quotation marks, not contractions
-        cleaned = cleaned.replace(Regex("^'"), "")    // Remove quote at start
-        cleaned = cleaned.replace(Regex("'$"), "")    // Remove quote at end  
-        cleaned = cleaned.replace(Regex("\\s'"), " ") // Remove quote after space
-        cleaned = cleaned.replace(Regex("'\\s"), " ") // Remove quote before space
+        // Step 2: Fix contractions that got broken (restore apostrophes only in contractions)
+        val contractionFixes = mapOf(
+            "dont" to "don't",
+            "cant" to "can't", 
+            "wont" to "won't",
+            "isnt" to "isn't",
+            "arent" to "aren't",
+            "wasnt" to "wasn't",
+            "werent" to "weren't",
+            "havent" to "haven't",
+            "hasnt" to "hasn't",
+            "hadnt" to "hadn't",
+            "wouldnt" to "wouldn't",
+            "couldnt" to "couldn't",
+            "shouldnt" to "shouldn't",
+            "didnt" to "didn't",
+            "doesnt" to "doesn't",
+            "Im" to "I'm",
+            "youre" to "you're",
+            "hes" to "he's",
+            "shes" to "she's",
+            "its" to "it's",
+            "were" to "we're",
+            "theyre" to "they're",
+            "Ill" to "I'll",
+            "youll" to "you'll",
+            "hell" to "he'll",
+            "shell" to "she'll",
+            "well" to "we'll",
+            "theyll" to "they'll",
+            "Ive" to "I've",
+            "youve" to "you've",
+            "weve" to "we've",
+            "theyve" to "they've"
+        )
         
-        // Handle smart apostrophes in quotes but preserve in contractions
-        cleaned = cleaned.replace(Regex("^'"), "")    // Remove smart quote at start
-        cleaned = cleaned.replace(Regex("'$"), "")    // Remove smart quote at end
-        cleaned = cleaned.replace(Regex("\\s'"), " ") // Remove smart quote after space
-        cleaned = cleaned.replace(Regex("'\\s"), " ") // Remove smart quote before space
+        contractionFixes.forEach { (broken, fixed) ->
+            cleaned = cleaned.replace("\\b$broken\\b".toRegex(RegexOption.IGNORE_CASE)) { 
+                if (it.value[0].isUpperCase()) fixed.replaceFirstChar { char -> char.uppercase() } else fixed
+            }
+        }
         
         // Remove markdown formatting
         cleaned = cleaned.replace("**", "")
         cleaned = cleaned.replace("*", "")
+        cleaned = cleaned.replace("__", "")
+        cleaned = cleaned.replace("_", "")
         
-        // Remove any remaining leading colons or dashes
-        cleaned = cleaned.removePrefix(":").removePrefix("-").trim()
+        // Remove any remaining formatting artifacts
+        cleaned = cleaned.removePrefix(":").removePrefix("-").removePrefix("•").trim()
         
-        // Clean up any double spaces that might have been created
+        // Clean up multiple spaces
         cleaned = cleaned.replace(Regex("\\s+"), " ")
         
         return cleaned.trim()
