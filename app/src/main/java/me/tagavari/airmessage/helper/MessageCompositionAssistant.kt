@@ -175,7 +175,7 @@ class MessageCompositionAssistant(
         val currentText = messageField.text.toString()
         return if (currentText.isNotEmpty()) {
             val contextString = buildConversationContext()
-            geminiHelper.enhanceMessage(context, currentText, targetTone, contextString)
+            geminiHelper.enhanceMessage(context, currentText, targetTone, contextString, conversationInfo)
                 .observeOn(AndroidSchedulers.mainThread())
         } else {
             Single.just(currentText)

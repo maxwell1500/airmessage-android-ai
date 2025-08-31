@@ -66,6 +66,7 @@ import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
@@ -278,8 +279,8 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 					.setMessage("View and manage stored contextual information from conversations.")
 					.setNegativeButton(android.R.string.cancel, null)
 					.setPositiveButton("View Details", (dialogInterface, which) -> {
-						//TODO: Show detailed memory viewer
-						Toast.makeText(getActivity(), "Memory viewer coming soon!", Toast.LENGTH_SHORT).show();
+						//Show detailed memory viewer
+						showMemoryDetailsDialog();
 					})
 					.setNeutralButton("Clear All", (dialogInterface, which) -> {
 						//Confirm clearing memory
@@ -305,6 +306,141 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 			//Returning true
 			return true;
 		};
+		
+		/**
+		 * Shows a dialog with detailed memory information
+		 */
+		private void showMemoryDetailsDialog() {
+			ConversationMemoryManager.getAllMemories(getActivity())
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe(
+					memories -> {
+						StringBuilder content = new StringBuilder();
+						
+						if (memories.isEmpty()) {
+							content.append("No conversation memories stored yet.\n\n");
+							content.append("Messages will be analyzed and stored as you chat to help improve smart replies.");
+						} else {
+							content.append("Stored memories: ").append(memories.size()).append("\n\n");
+							
+							for (ConversationMemoryManager.MemoryItem memory : memories) {
+								content.append("From: ").append(memory.getConversationTitle() != null ? memory.getConversationTitle() : "Unknown conversation").append("\n");
+								content.append("Info: ").append(memory.getExtractedInfo()).append("\n");
+								content.append("Category: ").append(memory.getCategory()).append("\n");
+								content.append("Date: ").append(new java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(new java.util.Date(memory.getTimestamp()))).append("\n\n");
+							}
+						}
+						
+						new MaterialAlertDialogBuilder(getActivity())
+							.setTitle("Conversation Memory Details")
+							.setMessage(content.toString())
+							.setPositiveButton("OK", null)
+							.setNegativeButton("Process Existing", (d, w) -> {
+								processExistingMessages();
+							})
+							.setNeutralButton("Manage", (d, w) -> {
+								showMemoryManagementOptions();
+							})
+							.show();
+					},
+					error -> {
+						Toast.makeText(getActivity(), "Failed to load memory details", Toast.LENGTH_SHORT).show();
+					}
+				);
+		}
+		
+		/**
+		 * Shows memory management options (Clear All, Clear Old)
+		 */
+		private void showMemoryManagementOptions() {
+			new MaterialAlertDialogBuilder(getActivity())
+				.setTitle("Memory Management")
+				.setMessage("Choose a memory management action:")
+				.setPositiveButton("Clear All", (d, w) -> {
+					new MaterialAlertDialogBuilder(getActivity())
+						.setTitle("Clear All Memory")
+						.setMessage("Are you sure you want to clear all stored conversation memory? This cannot be undone.")
+						.setNegativeButton(android.R.string.cancel, null)
+						.setPositiveButton("Clear All", (d2, w2) -> {
+							ConversationMemoryManager.clearAllMemories(getActivity())
+								.subscribe(
+									() -> {
+										Toast.makeText(getActivity(), "All conversation memory cleared", Toast.LENGTH_SHORT).show();
+										showMemoryDetailsDialog(); // Refresh the dialog
+									},
+									error -> Toast.makeText(getActivity(), "Failed to clear memory", Toast.LENGTH_SHORT).show()
+								);
+						})
+						.show();
+				})
+				.setNegativeButton("Clear Old", (d, w) -> {
+					int messageLimit = ConversationMemoryManager.getMessageLimit(getActivity());
+					new MaterialAlertDialogBuilder(getActivity())
+						.setTitle("Clear Old Memories")
+						.setMessage("This will remove memories beyond the current limit of " + messageLimit + " messages, keeping only the most recent ones.")
+						.setNegativeButton(android.R.string.cancel, null)
+						.setPositiveButton("Clear Old", (d2, w2) -> {
+							clearOldMemories();
+						})
+						.show();
+				})
+				.setNeutralButton("Cancel", null)
+				.show();
+		}
+		
+		/**
+		 * Clears old memories beyond the current message limit
+		 */
+		private void clearOldMemories() {
+			ConversationMemoryManager.clearOldMemories(getActivity())
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe(
+					() -> {
+						Toast.makeText(getActivity(), "Cleared old memories beyond current limit", Toast.LENGTH_SHORT).show();
+						showMemoryDetailsDialog(); // Refresh the dialog
+					},
+					error -> {
+						Toast.makeText(getActivity(), "Failed to clear old memories", Toast.LENGTH_SHORT).show();
+					}
+				);
+		}
+		
+		/**
+		 * Process existing messages to gather contextual data
+		 */
+		private void processExistingMessages() {
+			int messageLimit = ConversationMemoryManager.getMessageLimit(getActivity());
+			
+			new MaterialAlertDialogBuilder(getActivity())
+				.setTitle("Process Existing Messages")
+				.setMessage("This will analyze the last " + messageLimit + " messages from each conversation to extract contextual information using AI.\n\nThis process may take several minutes and requires an active Ollama connection. The app will remain usable during processing.")
+				.setNegativeButton(android.R.string.cancel, null)
+				.setPositiveButton("Process", (d, w) -> {
+					Toast.makeText(getActivity(), "Processing existing messages... This may take several minutes", Toast.LENGTH_LONG).show();
+					
+					// Use the bulk processing method from ConversationMemoryManager
+					ConversationMemoryManager.processExistingMessages(getActivity())
+						.observeOn(AndroidSchedulers.mainThread())
+						.subscribe(
+							() -> {
+								Toast.makeText(getActivity(), "Finished processing existing messages! Check memory details to see extracted information.", Toast.LENGTH_LONG).show();
+								showMemoryDetailsDialog(); // Refresh to show new memories
+							},
+							error -> {
+								Toast.makeText(getActivity(), "Error processing messages: " + error.getMessage(), Toast.LENGTH_LONG).show();
+							}
+						);
+				})
+				.show();
+		}
+		
+		/**
+		 * Updates the memory limit SeekBar summary to show the current value
+		 */
+		private void updateMemoryLimitSummary(androidx.preference.SeekBarPreference seekBarPreference) {
+			int currentValue = ConversationMemoryManager.getMessageLimit(getActivity());
+			seekBarPreference.setSummary("Store contextual information from the last " + currentValue + " messages per conversation");
+		}
 		
 		Preference.OnPreferenceClickListener deleteAttachmentsClickListener = preference -> {
 			//Creating a dialog
@@ -638,6 +774,23 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 			{
 				Preference preference = findPreference(getResources().getString(R.string.preference_ai_memory_manage_key));
 				if(preference != null) preference.setOnPreferenceClickListener(memoryManageClickListener);
+			}
+			
+			//Setting up memory limit SeekBar to show current value
+			{
+				androidx.preference.SeekBarPreference seekBarPreference = findPreference("conversation_memory_message_limit");
+				if(seekBarPreference != null) {
+					// Update summary to show current value
+					updateMemoryLimitSummary(seekBarPreference);
+					
+					// Listen for changes to update the summary
+					seekBarPreference.setOnPreferenceChangeListener((preference, newValue) -> {
+						// Update summary when value changes
+						int value = (Integer) newValue;
+						seekBarPreference.setSummary("Store contextual information from the last " + value + " messages per conversation");
+						return true;
+					});
+				}
 			}
 			findPreference(getResources().getString(R.string.preference_appearance_theme_key)).setOnPreferenceChangeListener(themeChangeListener);
 			{

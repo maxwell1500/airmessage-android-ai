@@ -290,6 +290,123 @@ If no useful contextual information, respond: {"hasInfo": false}
     }
     
     /**
+     * Clears old memories beyond the current message limit, keeping only the newest ones
+     */
+    @JvmStatic
+    fun clearOldMemories(context: Context): Completable {
+        return Completable.fromAction {
+            val memoryFile = getMemoryFile(context)
+            val memoryStore = loadMemoryStore(context)
+            val messageLimit = getMessageLimit(context)
+            
+            if (memoryStore.items.size > messageLimit) {
+                // Sort by timestamp (newest first) and keep only the newest ones
+                val sortedItems = memoryStore.items.sortedByDescending { it.timestamp }
+                val itemsToKeep = sortedItems.take(messageLimit)
+                val removedCount = memoryStore.items.size - itemsToKeep.size
+                
+                // Clear the list and add back only the newest items
+                memoryStore.items.clear()
+                memoryStore.items.addAll(itemsToKeep)
+                memoryStore.lastUpdated = System.currentTimeMillis()
+                
+                // Save the updated store
+                saveMemoryStore(memoryFile, memoryStore)
+                
+                Log.d(TAG, "Cleared $removedCount old conversation memories, kept ${itemsToKeep.size}")
+            } else {
+                Log.d(TAG, "No old memories to clear. Current count: ${memoryStore.items.size}, limit: $messageLimit")
+            }
+        }
+        .subscribeOn(Schedulers.io())
+    }
+    
+    /**
+     * Processes existing messages from all conversations to build memory store
+     */
+    @JvmStatic
+    fun processExistingMessages(context: Context): Completable {
+        return Completable.fromAction {
+            try {
+                val messageLimit = getMessageLimit(context)
+                var totalProcessed = 0
+                var totalExtracted = 0
+                
+                Log.d(TAG, "Starting to process existing messages with limit: $messageLimit")
+                
+                // Get all conversations from the database
+                val conversations = me.tagavari.airmessage.data.DatabaseManager.getInstance()
+                    .fetchSummaryConversations(context, false)
+                
+                Log.d(TAG, "Found ${conversations.size} conversations to process")
+                
+                for (conversation in conversations) {
+                    try {
+                        // Get conversation items (which includes messages)
+                        val conversationItems = me.tagavari.airmessage.data.DatabaseManager.getInstance()
+                            .loadConversationItems(context, conversation.localID)
+                        
+                        // Filter to get only MessageInfo items and take the last N messages
+                        val messages = conversationItems
+                            .filterIsInstance<MessageInfo>()
+                            .sortedBy { it.date }
+                            .takeLast(messageLimit)
+                        
+                        Log.d(TAG, "Processing ${messages.size} messages from conversation: ${conversation.title ?: conversation.guid}")
+                        
+                        // Process each message for memory extraction
+                        for (message in messages) {
+                            try {
+                                val messageText = message.messageText
+                                if (!messageText.isNullOrBlank() && messageText.length >= 10) {
+                                    val extractedInfo = extractInformationFromMessage(messageText, conversation)
+                                    if (extractedInfo != null) {
+                                        // Add to memory synchronously since we're already on IO thread
+                                        val memoryFile = getMemoryFile(context)
+                                        val memoryStore = loadMemoryStore(context)
+                                        
+                                        // Add the new item
+                                        memoryStore.items.add(extractedInfo)
+                                        totalExtracted++
+                                        
+                                        // Enforce global message limit by removing oldest items
+                                        val globalLimit = getMessageLimit(context)
+                                        while (memoryStore.items.size > globalLimit) {
+                                            memoryStore.items.removeAt(0) // Remove oldest
+                                        }
+                                        
+                                        // Update timestamp
+                                        memoryStore.lastUpdated = System.currentTimeMillis()
+                                        
+                                        // Save to file
+                                        saveMemoryStore(memoryFile, memoryStore)
+                                        
+                                        Log.v(TAG, "Extracted memory: ${extractedInfo.extractedInfo}")
+                                    }
+                                    totalProcessed++
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed to process message: ${message.localID}", e)
+                                // Continue processing other messages
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to process conversation: ${conversation.localID}", e)
+                        // Continue processing other conversations
+                    }
+                }
+                
+                Log.d(TAG, "Finished processing existing messages. Processed: $totalProcessed, Extracted: $totalExtracted")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to process existing messages", e)
+                throw e
+            }
+        }
+        .subscribeOn(Schedulers.io())
+    }
+    
+    /**
      * Gets the memory file
      */
     private fun getMemoryFile(context: Context): File {

@@ -1776,7 +1776,7 @@ public class Messaging extends AppCompatCompositeActivity {
 		// Hide smart replies when showing enhanced messages
 		smartRepliesContainer.setVisibility(View.GONE);
 
-		GeminiHelper.Companion.getInstance().enhanceMessageMultiple(Messaging.this, currentText, null)
+		GeminiHelper.Companion.getInstance().enhanceMessageMultiple(Messaging.this, currentText, null, viewModel.conversationInfo)
 			.observeOn(AndroidSchedulers.mainThread())
 			.subscribe(
 				enhancements -> {
