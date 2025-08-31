@@ -13,7 +13,7 @@ apply plugin: "com.google.firebase.crashlytics"
 apply plugin: "com.google.android.libraries.mapsplatform.secrets-gradle-plugin"
 
 secrets {
-	propertiesFileName "secrets.properties"
+	propertiesFileName = "secrets.properties"
 	defaultPropertiesFileName = "secrets.default.properties"
 }
 
@@ -48,8 +48,8 @@ android {
 			}
 		}
 	}
-	namespace 'me.tagavari.airmessage'
-	compileSdkVersion 35
+	namespace = 'me.tagavari.airmessage'
+	compileSdkVersion = 35
 	defaultConfig {
 		applicationId "me.tagavari.airmessage"
 		minSdkVersion 23
@@ -89,7 +89,7 @@ android {
 		}
 	}
 	buildFeatures {
-		buildConfig true
+		buildConfig = true
 	}
 
 	// Enable 16KB page size support with AGP 8.5.1+
@@ -125,9 +125,9 @@ android {
 
 	}
 	compileOptions {
-		coreLibraryDesugaringEnabled true
-		sourceCompatibility JavaVersion.VERSION_11
-		targetCompatibility JavaVersion.VERSION_11
+		coreLibraryDesugaringEnabled = true
+		sourceCompatibility = JavaVersion.VERSION_11
+		targetCompatibility = JavaVersion.VERSION_11
 	}
 	kotlinOptions {
 		jvmTarget = JavaVersion.VERSION_11.toString()
@@ -136,7 +136,7 @@ android {
 		noCompress 'tflite'
 	}
     lint {
-        abortOnError false
+        abortOnError = false
     }
 }
 
@@ -252,10 +252,10 @@ dependencies {
 
 repositories {
 	maven {
-		url "https://maven.google.com"
+		url = "https://maven.google.com"
 		// Alternative URL is "https://dl.google.com/dl/android/maven2/"
 	}
 	maven {
-		url "https://jitpack.io"
+		url = "https://jitpack.io"
 	}
 }

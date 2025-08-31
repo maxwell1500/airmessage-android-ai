@@ -7,16 +7,16 @@ dependencies {
 }
 
 android {
-    namespace 'com.klinker.android.send_message'
-    compileSdkVersion 35
+    namespace = 'com.klinker.android.send_message'
+    compileSdkVersion = 35
 
     defaultConfig {
-        minSdkVersion 23
-        targetSdkVersion 35
+        minSdkVersion = 23
+        targetSdkVersion = 35
     }
 
     lintOptions {
-        abortOnError false
+        abortOnError = false
     }
 
     useLibrary 'org.apache.http.legacy'

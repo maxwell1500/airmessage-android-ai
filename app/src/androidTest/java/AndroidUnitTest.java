@@ -21,7 +21,7 @@ public class AndroidUnitTest {
 				"+10 222.333.4444", //+1 (222) 333-4444
 				"+10 222.333.4444" //+1 (222) 333-4444
 		};
-		
+
 		final String[] expected = new String[]{
 				"example@example.com",
 				"an_example.te24@example.com",
@@ -33,11 +33,11 @@ public class AndroidUnitTest {
 				"+102223334444",
 				"+102223334444"
 		};
-		
+
 		for(int i = 0; i < inputs.length; i++) {
 			assertThat(AddressHelper.normalizeAddress(inputs[i])).isEqualTo(expected[i]);
 		}
-		
+
 		{
 			String[] inputArray = inputs.clone();
 			AddressHelper.normalizeAddresses(inputArray);
