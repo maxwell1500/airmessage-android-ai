@@ -92,11 +92,18 @@ android {
 		buildConfig true
 	}
 
-	// Enable 16KB page size support
+	// Enable 16KB page size support with AGP 8.5.1+
 	packaging {
 		jniLibs {
-			// Enable alignment for 16KB page size compatibility
+			// Use uncompressed shared libraries with 16KB alignment (AGP 8.5.1+)
 			useLegacyPackaging = false
+			// Exclude problematic ML Kit libraries from FOSS builds
+			excludes += ['**/libimage_processing_util_jni.so']
+			excludes += ['**/liblanguage_id_l2c_jni.so'] 
+			excludes += ['**/libpredictor_jni.so']
+		}
+		resources {
+			excludes += ["META-INF/DEPENDENCIES", "META-INF/LICENSE"]
 		}
 	}
 
@@ -113,11 +120,6 @@ android {
 		}
 	}
 
-	packagingOptions {
-		resources {
-			excludes += ["META-INF/DEPENDENCIES", "META-INF/LICENSE"]
-		}
-	}
 	testOptions {
 		unitTests.includeAndroidResources = true
 
@@ -193,7 +195,7 @@ dependencies {
 	implementation "com.github.chrisbanes:PhotoView:2.3.0"
 
 	//ML Kit
-	fullImplementation "com.google.mlkit:smart-reply:17.0.1"
+	fullImplementation "com.google.mlkit:smart-reply:17.0.3"
 
 	//Firebase
 	fullImplementation platform("com.google.firebase:firebase-bom:32.8.0")
@@ -202,8 +204,8 @@ dependencies {
 	fullImplementation "com.google.firebase:firebase-auth-ktx"  
 	fullImplementation "com.google.firebase:firebase-analytics-ktx"
 	fullImplementation "com.google.firebase:firebase-crashlytics-ktx"
-	// Google AI Generative AI SDK for Gemini integration
-	implementation "com.google.ai.client.generativeai:generativeai:0.7.0"
+	// Google AI Generative AI SDK for Gemini integration (full flavor only)
+	fullImplementation "com.google.ai.client.generativeai:generativeai:0.7.0"
 	
 	// Kotlin Coroutines RxJava3 bridge for suspend functions
 	implementation "org.jetbrains.kotlinx:kotlinx-coroutines-rx3:1.7.3"
