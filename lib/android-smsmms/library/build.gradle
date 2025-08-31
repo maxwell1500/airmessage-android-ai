@@ -1,0 +1,25 @@
+apply plugin: 'com.android.library'
+
+dependencies {
+    implementation 'com.klinkerapps:logger:1.0.3'
+    implementation 'com.squareup.okhttp:okhttp:2.5.0'
+    implementation 'com.squareup.okhttp:okhttp-urlconnection:2.5.0'
+}
+
+android {
+    namespace 'com.klinker.android.send_message'
+    compileSdkVersion 35
+
+    defaultConfig {
+        minSdkVersion 23
+        targetSdkVersion 35
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    useLibrary 'org.apache.http.legacy'
+}
+
+apply plugin: 'signing'
