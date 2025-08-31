@@ -28,7 +28,7 @@ object ConversationMemoryManager {
     private const val MEMORY_FILE_NAME = "conversation_memory.json"
     private const val PREF_MEMORY_MESSAGE_LIMIT = "conversation_memory_message_limit"
     private const val DEFAULT_MESSAGE_LIMIT = 50
-    private const val OLLAMA_TIMEOUT_SECONDS = 10L
+    private const val OLLAMA_TIMEOUT_SECONDS = 15L
     
     // Using JSON objects instead of Gson for Android compatibility
     private val httpClient = OkHttpClient.Builder()
@@ -48,7 +48,7 @@ object ConversationMemoryManager {
         val originalMessage: String,
         val senderName: String?,
         val timestamp: Long,
-        val category: String, // "event", "location", "time", "person", "general"
+        val category: String, // "code", "event", "location", "time", "person", "general"
         val confidence: Float = 1.0f
     )
     
@@ -130,9 +130,18 @@ object ConversationMemoryManager {
      */
     private fun extractInformationFromMessage(messageText: String, conversation: ConversationInfo): MemoryItem? {
         try {
+            Log.d(TAG, "Extracting info from message: ${messageText.take(50)}...")
             val prompt = buildExtractionPrompt(messageText)
             val response = callOllamaAPI(prompt)
-            return parseExtractionResponse(response, messageText, conversation)
+            val result = parseExtractionResponse(response, messageText, conversation)
+            
+            if (result != null) {
+                Log.d(TAG, "Successfully extracted memory item")
+            } else {
+                Log.d(TAG, "No memory item extracted")
+            }
+            
+            return result
         } catch (e: Exception) {
             Log.w(TAG, "Failed to extract information from message", e)
             return null
@@ -146,6 +155,7 @@ object ConversationMemoryManager {
         return """
 Extract key contextual information from this message that would be useful for generating smart replies in other conversations. Focus on:
 
+- Codes (verification codes, 2FA codes, access codes, temporary passwords, PINs)
 - Events and dates/times (parties, meetings, appointments)
 - Locations and addresses
 - Important decisions or plans
@@ -158,9 +168,14 @@ Respond in JSON format:
 {
   "hasInfo": true/false,
   "info": "concise extracted information",
-  "category": "event|location|time|person|general",
+  "category": "code|event|location|time|person|general",
   "confidence": 0.0-1.0
 }
+
+Examples:
+- For "Your verification code is 123456": {"hasInfo": true, "info": "Verification code: 123456", "category": "code", "confidence": 1.0}
+- For "Use code ABC123 to access": {"hasInfo": true, "info": "Access code: ABC123", "category": "code", "confidence": 1.0}
+- For "Meeting at 3pm": {"hasInfo": true, "info": "Meeting at 3pm", "category": "event", "confidence": 0.9}
 
 If no useful contextual information, respond: {"hasInfo": false}
         """.trimIndent()
@@ -187,15 +202,22 @@ If no useful contextual information, respond: {"hasInfo": false}
             .build()
         
         return try {
+            Log.d(TAG, "Calling Ollama API...")
             httpClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
                     if (responseBody != null) {
+                        Log.d(TAG, "Ollama API response body: $responseBody")
                         val responseJson = JSONObject(responseBody)
-                        responseJson.optString("response", "")
-                    } else null
+                        val aiResponse = responseJson.optString("response", "")
+                        Log.d(TAG, "Extracted AI response: $aiResponse")
+                        aiResponse
+                    } else {
+                        Log.w(TAG, "Ollama API response body is null")
+                        null
+                    }
                 } else {
-                    Log.w(TAG, "Ollama API call failed: ${response.code}")
+                    Log.w(TAG, "Ollama API call failed: ${response.code} - ${response.message}")
                     null
                 }
             }
@@ -209,29 +231,71 @@ If no useful contextual information, respond: {"hasInfo": false}
      * Parses the extraction response from Ollama
      */
     private fun parseExtractionResponse(response: String?, messageText: String, conversation: ConversationInfo): MemoryItem? {
-        if (response.isNullOrBlank()) return null
+        if (response.isNullOrBlank()) {
+            Log.d(TAG, "Empty response from Ollama")
+            return null
+        }
+        
+        Log.d(TAG, "Ollama response: $response")
         
         return try {
+            // Try to parse as JSON first
             val extracted = JSONObject(response)
             val hasInfo = extracted.optBoolean("hasInfo", false)
             
+            Log.d(TAG, "Parsed JSON hasInfo: $hasInfo")
+            
             if (hasInfo) {
-                MemoryItem(
-                    id = "${conversation.guid ?: "unknown"}_${System.currentTimeMillis()}",
-                    conversationGuid = conversation.guid ?: "",
-                    conversationTitle = conversation.title,
-                    extractedInfo = extracted.optString("info", ""),
-                    originalMessage = messageText,
-                    senderName = null, // Will be set by caller if available
-                    timestamp = System.currentTimeMillis(),
-                    category = extracted.optString("category", "general"),
-                    confidence = extracted.optDouble("confidence", 1.0).toFloat()
-                )
+                val extractedInfo = extracted.optString("info", "")
+                Log.d(TAG, "Extracted info: $extractedInfo")
+                
+                if (extractedInfo.isNotBlank()) {
+                    MemoryItem(
+                        id = "${conversation.guid ?: "unknown"}_${System.currentTimeMillis()}",
+                        conversationGuid = conversation.guid ?: "",
+                        conversationTitle = conversation.title,
+                        extractedInfo = extractedInfo,
+                        originalMessage = messageText,
+                        senderName = null, // Will be set by caller if available
+                        timestamp = System.currentTimeMillis(),
+                        category = extracted.optString("category", "general"),
+                        confidence = extracted.optDouble("confidence", 1.0).toFloat()
+                    )
+                } else {
+                    Log.d(TAG, "Extracted info is blank")
+                    null
+                }
             } else {
+                Log.d(TAG, "No useful info found in message")
                 null
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to parse extraction response", e)
+            Log.w(TAG, "Failed to parse extraction response as JSON", e)
+            
+            // Fallback: try to extract info directly from non-JSON response
+            if (response.contains("hasInfo") && response.contains("true")) {
+                Log.d(TAG, "Attempting to extract from non-JSON response")
+                val infoMatch = Regex("\"info\"\\s*:\\s*\"([^\"]+)\"").find(response)
+                val categoryMatch = Regex("\"category\"\\s*:\\s*\"([^\"]+)\"").find(response)
+                
+                if (infoMatch != null) {
+                    val extractedInfo = infoMatch.groupValues[1]
+                    Log.d(TAG, "Fallback extracted info: $extractedInfo")
+                    
+                    return MemoryItem(
+                        id = "${conversation.guid ?: "unknown"}_${System.currentTimeMillis()}",
+                        conversationGuid = conversation.guid ?: "",
+                        conversationTitle = conversation.title,
+                        extractedInfo = extractedInfo,
+                        originalMessage = messageText,
+                        senderName = null,
+                        timestamp = System.currentTimeMillis(),
+                        category = categoryMatch?.groupValues?.get(1) ?: "general",
+                        confidence = 0.8f
+                    )
+                }
+            }
+            
             null
         }
     }
@@ -322,15 +386,29 @@ If no useful contextual information, respond: {"hasInfo": false}
     }
     
     /**
+     * Result data for bulk processing operation
+     */
+    data class ProcessingResult(
+        val conversationsProcessed: Int,
+        val messagesProcessed: Int,
+        val memoriesExtracted: Int,
+        val processingTimeMs: Long
+    )
+    
+    /**
      * Processes existing messages from all conversations to build memory store
      */
     @JvmStatic
-    fun processExistingMessages(context: Context): Completable {
-        return Completable.fromAction {
+    fun processExistingMessages(context: Context): io.reactivex.rxjava3.core.Single<ProcessingResult> {
+        return io.reactivex.rxjava3.core.Single.fromCallable {
             try {
+                val startTime = System.currentTimeMillis()
                 val messageLimit = getMessageLimit(context)
                 var totalProcessed = 0
                 var totalExtracted = 0
+                var conversationsProcessed = 0
+                var consecutiveFailures = 0
+                val maxConsecutiveFailures = 5 // Stop if API fails 5 times in a row
                 
                 Log.d(TAG, "Starting to process existing messages with limit: $messageLimit")
                 
@@ -341,6 +419,14 @@ If no useful contextual information, respond: {"hasInfo": false}
                 Log.d(TAG, "Found ${conversations.size} conversations to process")
                 
                 for (conversation in conversations) {
+                    conversationsProcessed++
+                    
+                    // Stop processing if we've had too many consecutive failures
+                    if (consecutiveFailures >= maxConsecutiveFailures) {
+                        Log.w(TAG, "Stopping bulk processing due to too many API failures")
+                        break
+                    }
+                    
                     try {
                         // Get conversation items (which includes messages)
                         val conversationItems = me.tagavari.airmessage.data.DatabaseManager.getInstance()
@@ -354,13 +440,21 @@ If no useful contextual information, respond: {"hasInfo": false}
                         
                         Log.d(TAG, "Processing ${messages.size} messages from conversation: ${conversation.title ?: conversation.guid}")
                         
-                        // Process each message for memory extraction
-                        for (message in messages) {
+                        // Process each message for memory extraction with rate limiting
+                        for ((index, message) in messages.withIndex()) {
                             try {
                                 val messageText = message.messageText
                                 if (!messageText.isNullOrBlank() && messageText.length >= 10) {
+                                    // Add rate limiting: 500ms delay between API calls to prevent overwhelming
+                                    if (index > 0) {
+                                        Thread.sleep(500)
+                                    }
+                                    
+                                    Log.d(TAG, "Processing message ${index + 1}/${messages.size} from ${conversation.title}")
+                                    
                                     val extractedInfo = extractInformationFromMessage(messageText, conversation)
                                     if (extractedInfo != null) {
+                                        consecutiveFailures = 0 // Reset failure counter on success
                                         // Add to memory synchronously since we're already on IO thread
                                         val memoryFile = getMemoryFile(context)
                                         val memoryStore = loadMemoryStore(context)
@@ -382,6 +476,12 @@ If no useful contextual information, respond: {"hasInfo": false}
                                         saveMemoryStore(memoryFile, memoryStore)
                                         
                                         Log.v(TAG, "Extracted memory: ${extractedInfo.extractedInfo}")
+                                    } else {
+                                        consecutiveFailures++
+                                        if (consecutiveFailures >= maxConsecutiveFailures) {
+                                            Log.w(TAG, "Too many consecutive API failures ($consecutiveFailures), stopping bulk processing")
+                                            break
+                                        }
                                     }
                                     totalProcessed++
                                 }
@@ -396,7 +496,17 @@ If no useful contextual information, respond: {"hasInfo": false}
                     }
                 }
                 
-                Log.d(TAG, "Finished processing existing messages. Processed: $totalProcessed, Extracted: $totalExtracted")
+                val endTime = System.currentTimeMillis()
+                val processingTimeMs = endTime - startTime
+                
+                Log.d(TAG, "Finished processing existing messages. Processed: $totalProcessed, Extracted: $totalExtracted, Time: ${processingTimeMs}ms")
+                
+                ProcessingResult(
+                    conversationsProcessed = conversationsProcessed,
+                    messagesProcessed = totalProcessed,
+                    memoriesExtracted = totalExtracted,
+                    processingTimeMs = processingTimeMs
+                )
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to process existing messages", e)

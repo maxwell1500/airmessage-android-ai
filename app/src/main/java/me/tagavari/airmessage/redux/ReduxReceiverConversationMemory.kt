@@ -102,10 +102,8 @@ object ReduxReceiverConversationMemory {
             return
         }
         
-        // Skip processing our own outgoing messages for now (could be enabled later)
-        if (message.isOutgoing) {
-            return
-        }
+        // Process both incoming and outgoing messages for complete context
+        // Note: Processing outgoing messages helps capture our own commitments, plans, and context
         
         Log.d(TAG, "Processing message for memory extraction: conversation=${conversation.guid}")
         

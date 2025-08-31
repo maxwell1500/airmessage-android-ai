@@ -258,13 +258,19 @@ abstract class GeminiHelper protected constructor() {
             // Retrieve contextual memories for enhanced message completion
             val contextualMemories = try {
                 if (conversationInfo != null) {
-                    ConversationMemoryManager.getContextualMemories(context, conversationInfo, originalMessage)
+                    val memories = ConversationMemoryManager.getContextualMemories(context, conversationInfo, originalMessage)
                         .blockingGet()
+                    Log.d("GeminiHelper", "Retrieved ${memories.size} contextual memories for single message enhancement")
+                    if (memories.isNotEmpty()) {
+                        Log.d("GeminiHelper", "Available memories: ${memories.map { it.extractedInfo }}")
+                    }
+                    memories
                 } else {
+                    Log.d("GeminiHelper", "No conversation info provided for memory retrieval (single)")
                     emptyList<ConversationMemoryManager.MemoryItem>()
                 }
             } catch (e: Exception) {
-                Log.w("GeminiHelper", "Failed to retrieve contextual memories for enhancement", e)
+                Log.w("GeminiHelper", "Failed to retrieve contextual memories for single enhancement", e)
                 emptyList<ConversationMemoryManager.MemoryItem>()
             }
             
@@ -319,13 +325,19 @@ abstract class GeminiHelper protected constructor() {
             // Retrieve contextual memories for enhanced message completion
             val contextualMemories = try {
                 if (conversationInfo != null) {
-                    ConversationMemoryManager.getContextualMemories(context, conversationInfo, originalMessage)
+                    val memories = ConversationMemoryManager.getContextualMemories(context, conversationInfo, originalMessage)
                         .blockingGet()
+                    Log.d("GeminiHelper", "Retrieved ${memories.size} contextual memories for multiple message enhancement")
+                    if (memories.isNotEmpty()) {
+                        Log.d("GeminiHelper", "Available memories: ${memories.map { it.extractedInfo }}")
+                    }
+                    memories
                 } else {
+                    Log.d("GeminiHelper", "No conversation info provided for memory retrieval (multiple)")
                     emptyList<ConversationMemoryManager.MemoryItem>()
                 }
             } catch (e: Exception) {
-                Log.w("GeminiHelper", "Failed to retrieve contextual memories for enhancement", e)
+                Log.w("GeminiHelper", "Failed to retrieve contextual memories for multiple enhancement", e)
                 emptyList<ConversationMemoryManager.MemoryItem>()
             }
             
@@ -610,8 +622,12 @@ abstract class GeminiHelper protected constructor() {
         
         val memoryContext = if (contextualMemories.isNotEmpty()) {
             val relevantMemories = contextualMemories.joinToString("\n") { "• ${it.extractedInfo} (from ${it.conversationTitle ?: "conversation"})" }
+            Log.d("GeminiHelper", "Including ${contextualMemories.size} memories in single enhancement prompt")
             "Relevant information from your other conversations:\n$relevantMemories\n\n"
-        } else ""
+        } else {
+            Log.d("GeminiHelper", "No memories available for single enhancement prompt")
+            ""
+        }
         
         return """
             Please improve the following message to be more $toneDescription while maintaining its original meaning.
@@ -632,8 +648,12 @@ abstract class GeminiHelper protected constructor() {
     ): String {
         val memoryContext = if (contextualMemories.isNotEmpty()) {
             val relevantMemories = contextualMemories.joinToString("\n") { "• ${it.extractedInfo} (from ${it.conversationTitle ?: "conversation"})" }
+            Log.d("GeminiHelper", "Including ${contextualMemories.size} memories in multiple enhancement prompt")
             "Relevant information from your other conversations:\n$relevantMemories\n\n"
-        } else ""
+        } else {
+            Log.d("GeminiHelper", "No memories available for multiple enhancement prompt")
+            ""
+        }
         
         return """
             Please provide 3 different improved versions of this message. Do not use brackets or placeholders - provide the actual enhanced text.

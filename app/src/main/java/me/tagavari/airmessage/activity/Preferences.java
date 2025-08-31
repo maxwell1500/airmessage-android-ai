@@ -291,6 +291,7 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 								.setPositiveButton("Clear", (d, w) -> {
 									//Clear memory
 									ConversationMemoryManager.clearAllMemories(getActivity())
+											.observeOn(AndroidSchedulers.mainThread())
 											.subscribe(
 													() -> Toast.makeText(getActivity(), "Conversation memory cleared", Toast.LENGTH_SHORT).show(),
 													error -> Toast.makeText(getActivity(), "Failed to clear memory", Toast.LENGTH_SHORT).show()
@@ -311,10 +312,22 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 		 * Shows a dialog with detailed memory information
 		 */
 		private void showMemoryDetailsDialog() {
+			// Check if fragment is still attached
+			if (getActivity() == null || !isAdded()) {
+				Log.d("Preferences", "Fragment not available for memory details dialog");
+				return;
+			}
+			
 			ConversationMemoryManager.getAllMemories(getActivity())
 				.observeOn(AndroidSchedulers.mainThread())
 				.subscribe(
 					memories -> {
+						// Check if fragment is still attached when callback executes
+						if (getActivity() == null || !isAdded()) {
+							Log.d("Preferences", "Fragment no longer available when memory details loaded");
+							return;
+						}
+						
 						StringBuilder content = new StringBuilder();
 						
 						if (memories.isEmpty()) {
@@ -363,6 +376,7 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 						.setNegativeButton(android.R.string.cancel, null)
 						.setPositiveButton("Clear All", (d2, w2) -> {
 							ConversationMemoryManager.clearAllMemories(getActivity())
+								.observeOn(AndroidSchedulers.mainThread())
 								.subscribe(
 									() -> {
 										Toast.makeText(getActivity(), "All conversation memory cleared", Toast.LENGTH_SHORT).show();
@@ -422,15 +436,70 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 					ConversationMemoryManager.processExistingMessages(getActivity())
 						.observeOn(AndroidSchedulers.mainThread())
 						.subscribe(
-							() -> {
-								Toast.makeText(getActivity(), "Finished processing existing messages! Check memory details to see extracted information.", Toast.LENGTH_LONG).show();
-								showMemoryDetailsDialog(); // Refresh to show new memories
+							result -> {
+								// Show detailed completion dialog
+								showProcessingCompletionDialog(result);
 							},
 							error -> {
-								Toast.makeText(getActivity(), "Error processing messages: " + error.getMessage(), Toast.LENGTH_LONG).show();
+								if (getActivity() != null && isAdded()) {
+									Toast.makeText(getActivity(), "Error processing messages: " + error.getMessage(), Toast.LENGTH_LONG).show();
+								} else {
+									Log.d("Preferences", "Fragment not available for error toast, logging: " + error.getMessage());
+								}
 							}
 						);
 				})
+				.show();
+		}
+		
+		/**
+		 * Shows a detailed completion dialog with processing results
+		 */
+		private void showProcessingCompletionDialog(ConversationMemoryManager.ProcessingResult result) {
+			// Check if fragment is still attached and activity is available
+			if (getActivity() == null || !isAdded() || getActivity().isFinishing()) {
+				Log.d("Preferences", "Fragment not available for completion dialog, skipping");
+				return;
+			}
+			
+			// Format processing time
+			String processingTime;
+			long timeMs = result.getProcessingTimeMs();
+			if (timeMs < 1000) {
+				processingTime = timeMs + "ms";
+			} else if (timeMs < 60000) {
+				processingTime = String.format("%.1f seconds", timeMs / 1000.0);
+			} else {
+				processingTime = String.format("%.1f minutes", timeMs / 60000.0);
+			}
+			
+			// Create detailed summary
+			StringBuilder summary = new StringBuilder();
+			summary.append("✅ Processing Complete!\n\n");
+			summary.append("📊 Results Summary:\n");
+			summary.append("• Conversations processed: ").append(result.getConversationsProcessed()).append("\n");
+			summary.append("• Messages analyzed: ").append(result.getMessagesProcessed()).append("\n");
+			summary.append("• Memories extracted: ").append(result.getMemoriesExtracted()).append("\n");
+			summary.append("• Processing time: ").append(processingTime).append("\n\n");
+			
+			if (result.getMemoriesExtracted() > 0) {
+				summary.append("🎉 Success! ").append(result.getMemoriesExtracted()).append(" contextual memories have been extracted and are now available for smart replies and message enhancement.");
+			} else {
+				summary.append("ℹ️ No new memories were extracted. This could be due to:\n");
+				summary.append("• Messages already processed\n");
+				summary.append("• No qualifying messages (too short or empty)\n");
+				summary.append("• Ollama server not responding");
+			}
+			
+			new MaterialAlertDialogBuilder(getActivity())
+				.setTitle("Memory Processing Complete")
+				.setMessage(summary.toString())
+				.setPositiveButton("View Details", (d, w) -> {
+					if (getActivity() != null && isAdded()) {
+						showMemoryDetailsDialog(); // Show the memory details dialog
+					}
+				})
+				.setNegativeButton("OK", null)
 				.show();
 		}
 		
