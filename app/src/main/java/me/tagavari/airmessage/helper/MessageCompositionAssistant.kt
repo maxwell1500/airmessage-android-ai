@@ -67,7 +67,7 @@ class MessageCompositionAssistant(
         val analysisDisposable = Single.timer(1, TimeUnit.SECONDS)
             .flatMap { 
                 if (isContentAnalysisEnabled) {
-                    geminiHelper.analyzeMessageContent(text)
+                    geminiHelper.analyzeMessageContent(context, text)
                 } else {
                     Single.just(ContentAnalysis(false, false, false, RiskLevel.LOW, emptyList()))
                 }
@@ -91,8 +91,8 @@ class MessageCompositionAssistant(
     fun enhanceCurrentMessage(): Single<String> {
         val currentText = messageField.text.toString()
         return if (currentText.isNotEmpty()) {
-            val context = buildConversationContext()
-            geminiHelper.enhanceMessage(currentText, enhancementTone, context)
+            val contextString = buildConversationContext()
+            geminiHelper.enhanceMessage(context, currentText, enhancementTone, contextString)
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnSuccess { enhanced ->
                     onEnhancementAvailable?.invoke(enhanced)
@@ -174,8 +174,8 @@ class MessageCompositionAssistant(
     fun adjustMessageTone(targetTone: MessageTone): Single<String> {
         val currentText = messageField.text.toString()
         return if (currentText.isNotEmpty()) {
-            val context = buildConversationContext()
-            geminiHelper.enhanceMessage(currentText, targetTone, context)
+            val contextString = buildConversationContext()
+            geminiHelper.enhanceMessage(context, currentText, targetTone, contextString)
                 .observeOn(AndroidSchedulers.mainThread())
         } else {
             Single.just(currentText)

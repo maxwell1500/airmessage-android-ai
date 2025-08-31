@@ -10,6 +10,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -25,6 +26,7 @@ import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
@@ -59,7 +61,11 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
@@ -622,6 +628,15 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 					updateAIAuthSummary(aiAuthPreference);
 				}
 				
+				// Ollama scan models button
+				Preference ollamaScanPreference = findPreference(getResources().getString(R.string.preference_ollama_scan_models_key));
+				if(ollamaScanPreference != null) {
+					ollamaScanPreference.setOnPreferenceClickListener(ollamaScanModelsClickListener);
+				}
+				
+				// Load previously scanned models if available
+				loadPreviouslyScannedModels();
+				
 				SwitchPreference aiEnabledSwitch = findPreference(getResources().getString(R.string.preference_ai_enabled_key));
 				if(aiEnabledSwitch != null) {
 					aiEnabledSwitch.setOnPreferenceChangeListener(aiEnabledChangeListener);
@@ -784,6 +799,128 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 		
 		private void handleGoogleSignInResult(ActivityResult result) {
 			// Placeholder for now
+		}
+		
+		Preference.OnPreferenceClickListener ollamaScanModelsClickListener = preference -> {
+			scanOllamaModels();
+			return true;
+		};
+		
+		private void scanOllamaModels() {
+			String hostname = getPreferenceOllamaHostname(getContext());
+			if (hostname.isEmpty()) {
+				Toast.makeText(getContext(), "Please enter Ollama server hostname first", Toast.LENGTH_LONG).show();
+				return;
+			}
+			
+			String baseUrl = getOllamaBaseUrl(getContext());
+			
+			// Show progress dialog
+			AlertDialog progressDialog = new MaterialAlertDialogBuilder(getActivity())
+				.setTitle("Scanning Models")
+				.setMessage("Checking available models on " + hostname + "...")
+				.setCancelable(false)
+				.create();
+			progressDialog.show();
+			
+			// Make API call to get models
+			new Thread(() -> {
+				try {
+					OkHttpClient client = new OkHttpClient.Builder()
+						.connectTimeout(10, TimeUnit.SECONDS)
+						.readTimeout(30, TimeUnit.SECONDS)
+						.build();
+					
+					Request request = new Request.Builder()
+						.url(baseUrl + "/api/tags")
+						.get()
+						.build();
+					
+					Response response = client.newCall(request).execute();
+					String responseBody = response.body().string();
+					
+					getActivity().runOnUiThread(() -> {
+						progressDialog.dismiss();
+						if (response.isSuccessful()) {
+							updateModelList(responseBody);
+						} else {
+							Toast.makeText(getContext(), "Failed to connect to Ollama server: " + response.code(), Toast.LENGTH_LONG).show();
+						}
+					});
+				} catch (Exception e) {
+					getActivity().runOnUiThread(() -> {
+						progressDialog.dismiss();
+						Toast.makeText(getContext(), "Error connecting to Ollama server: " + e.getMessage(), Toast.LENGTH_LONG).show();
+					});
+				}
+			}).start();
+		}
+		
+		private void updateModelList(String responseBody) {
+			try {
+				// Parse JSON response to extract model names
+				// Simple JSON parsing - looking for "name" fields in models array
+				java.util.List<String> modelNames = new java.util.ArrayList<>();
+				java.util.List<String> modelDisplayNames = new java.util.ArrayList<>();
+				
+				// Basic JSON parsing without external library
+				String[] lines = responseBody.split("\"name\":");
+				for (int i = 1; i < lines.length; i++) {
+					String line = lines[i].trim();
+					if (line.startsWith("\"")) {
+						int endIndex = line.indexOf("\"", 1);
+						if (endIndex > 1) {
+							String modelName = line.substring(1, endIndex);
+							modelNames.add(modelName);
+							modelDisplayNames.add(modelName);
+						}
+					}
+				}
+				
+				if (modelNames.isEmpty()) {
+					Toast.makeText(getContext(), "No models found on server", Toast.LENGTH_LONG).show();
+					return;
+				}
+				
+				// Save the scanned models to SharedPreferences
+				String[] modelNamesArray = modelNames.toArray(new String[0]);
+				String[] modelDisplayNamesArray = modelDisplayNames.toArray(new String[0]);
+				saveOllamaScannedModels(getContext(), modelNamesArray, modelDisplayNamesArray);
+				
+				// Update the ListPreference with found models
+				updateModelListPreference(modelNamesArray, modelDisplayNamesArray);
+				
+				Toast.makeText(getContext(), "Found " + modelNames.size() + " models", Toast.LENGTH_SHORT).show();
+			} catch (Exception e) {
+				Toast.makeText(getContext(), "Error parsing server response", Toast.LENGTH_LONG).show();
+			}
+		}
+		
+		private void updateModelListPreference(String[] modelNames, String[] modelDisplayNames) {
+			ListPreference modelPreference = findPreference(getResources().getString(R.string.preference_ollama_model_key));
+			if (modelPreference != null) {
+				CharSequence[] entries = modelDisplayNames;
+				CharSequence[] entryValues = modelNames;
+				
+				modelPreference.setEntries(entries);
+				modelPreference.setEntryValues(entryValues);
+				
+				// Set default to first model if none selected
+				if ((modelPreference.getValue() == null || modelPreference.getValue().isEmpty()) && modelNames.length > 0) {
+					modelPreference.setValue(modelNames[0]);
+				}
+			}
+		}
+		
+		private void loadPreviouslyScannedModels() {
+			if (hasScannedModels(getContext())) {
+				String[] modelNames = getScannedModelNames(getContext());
+				String[] modelDisplayNames = getScannedModelDisplayNames(getContext());
+				
+				if (modelNames.length > 0 && modelDisplayNames.length > 0) {
+					updateModelListPreference(modelNames, modelDisplayNames);
+				}
+			}
 		}
 		
 		private class AdvancedSyncDialogManager {
@@ -1247,6 +1384,68 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 	
 	public static boolean getPreferenceReplySuggestions(Context context) {
 		return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.preference_features_replysuggestions_key), true);
+	}
+	
+	public static String getPreferenceAIProvider(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_features_aiprovider_key), "ollama");
+	}
+	
+	public static String getPreferenceOllamaHostname(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_ollama_hostname_key), "");
+	}
+	
+	public static int getPreferenceOllamaPort(Context context) {
+		return Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_ollama_port_key), "11434"));
+	}
+	
+	public static String getPreferenceOllamaModel(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_ollama_model_key), "");
+	}
+	
+	public static boolean getPreferenceOllamaKeepAlive(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.preference_ollama_keepalive_key), true);
+	}
+	
+	public static String getOllamaBaseUrl(Context context) {
+		String hostname = getPreferenceOllamaHostname(context);
+		if (hostname.isEmpty()) {
+			return "";
+		}
+		int port = getPreferenceOllamaPort(context);
+		return "http://" + hostname + ":" + port;
+	}
+	
+	// Save scanned Ollama models to SharedPreferences
+	public static void saveOllamaScannedModels(Context context, String[] modelNames, String[] modelDisplayNames) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		SharedPreferences.Editor editor = prefs.edit();
+		
+		// Convert arrays to comma-separated strings for storage
+		String namesStr = String.join(",", modelNames);
+		String displayNamesStr = String.join(",", modelDisplayNames);
+		
+		editor.putString("ollama_scanned_model_names", namesStr);
+		editor.putString("ollama_scanned_model_display_names", displayNamesStr);
+		editor.putBoolean("ollama_models_scanned", true);
+		editor.apply();
+	}
+	
+	// Load previously scanned Ollama models from SharedPreferences
+	public static boolean hasScannedModels(Context context) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		return prefs.getBoolean("ollama_models_scanned", false);
+	}
+	
+	public static String[] getScannedModelNames(Context context) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		String namesStr = prefs.getString("ollama_scanned_model_names", "");
+		return namesStr.isEmpty() ? new String[0] : namesStr.split(",");
+	}
+	
+	public static String[] getScannedModelDisplayNames(Context context) {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		String displayNamesStr = prefs.getString("ollama_scanned_model_display_names", "");
+		return displayNamesStr.isEmpty() ? new String[0] : displayNamesStr.split(",");
 	}
 	
 	public static boolean getPreferenceAdvancedColor(Context context) {

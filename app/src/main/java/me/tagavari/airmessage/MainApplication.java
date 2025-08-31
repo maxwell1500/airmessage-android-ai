@@ -169,6 +169,76 @@ public class MainApplication extends Application {
 		if(BuildConfig.DEBUG) {
 			WebView.setWebContentsDebuggingEnabled(true);
 		}
+		
+		// Initialize Ollama keep-alive if enabled
+		initializeOllamaKeepAlive();
+	}
+	
+	private void initializeOllamaKeepAlive() {
+		// Check if Ollama keep-alive is enabled and hostname is configured
+		if (Preferences.getPreferenceOllamaKeepAlive(this)) {
+			String hostname = Preferences.getPreferenceOllamaHostname(this);
+			if (!hostname.isEmpty()) {
+				// Send keep-alive request in background
+				new Thread(() -> {
+					try {
+						String baseUrl = Preferences.getOllamaBaseUrl(this);
+						String model = Preferences.getPreferenceOllamaModel(this);
+						
+						if (model.isEmpty()) {
+							// If no model is selected, just ping the server
+							sendOllamaKeepAlive(baseUrl + "/api/tags");
+						} else {
+							// Send a keep-alive with the selected model
+							sendOllamaModelKeepAlive(baseUrl, model);
+						}
+					} catch (Exception e) {
+						// Silent fail - keep-alive is not critical
+						android.util.Log.d("Ollama", "Keep-alive failed: " + e.getMessage());
+					}
+				}).start();
+			}
+		}
+	}
+	
+	private void sendOllamaKeepAlive(String url) throws Exception {
+		okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+			.connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+			.readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+			.build();
+		
+		okhttp3.Request request = new okhttp3.Request.Builder()
+			.url(url)
+			.get()
+			.build();
+		
+		okhttp3.Response response = client.newCall(request).execute();
+		response.close();
+		
+		android.util.Log.d("Ollama", "Keep-alive ping successful");
+	}
+	
+	private void sendOllamaModelKeepAlive(String baseUrl, String model) throws Exception {
+		okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+			.connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+			.readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+			.build();
+		
+		// Send a keep-alive request to load the model
+		String jsonPayload = "{\"model\":\"" + model + "\",\"keep_alive\":\"5m\"}";
+		okhttp3.RequestBody body = okhttp3.RequestBody.create(
+			jsonPayload, okhttp3.MediaType.parse("application/json")
+		);
+		
+		okhttp3.Request request = new okhttp3.Request.Builder()
+			.url(baseUrl + "/api/generate")
+			.post(body)
+			.build();
+		
+		okhttp3.Response response = client.newCall(request).execute();
+		response.close();
+		
+		android.util.Log.d("Ollama", "Model keep-alive successful for: " + model);
 	}
 	
 	public static MainApplication getInstance() {

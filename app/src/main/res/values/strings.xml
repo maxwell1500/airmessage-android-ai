@@ -609,4 +609,31 @@
 	<string name="preference_ai_content_analysis_key">ai_content_analysis</string>
 	<string name="preference_ai_content_analysis_title">Content Analysis</string>
 	<string name="preference_ai_content_analysis_description">Analyze messages for spam, inappropriate content, or privacy issues</string>
+	
+	<!-- Ollama Configuration -->
+	<string name="preferencegroup_ollama_key">ollama_config</string>
+	<string name="preferencegroup_ollama_title">Ollama Configuration</string>
+	<string name="preference_ollama_hostname_key">ollama_hostname</string>
+	<string name="preference_ollama_hostname_title">Server Hostname</string>
+	<string name="preference_ollama_hostname_summary">Enter your Ollama server hostname or IP address</string>
+	<string name="preference_ollama_port_key">ollama_port</string>
+	<string name="preference_ollama_port_title">Server Port</string>
+	<string name="preference_ollama_port_summary">Port number for Ollama API (default: 11434)</string>
+	<string name="preference_ollama_model_key">ollama_model</string>
+	<string name="preference_ollama_model_title">AI Model</string>
+	<string name="preference_ollama_model_summary">Select the model to use for AI features</string>
+	<string name="preference_ollama_keepalive_key">ollama_keepalive</string>
+	<string name="preference_ollama_keepalive_title">Keep Alive on Startup</string>
+	<string name="preference_ollama_keepalive_description">Send keep-alive request to server on app startup for faster responses</string>
+	<string name="preference_ollama_scan_models_key">ollama_scan_models</string>
+	<string name="preference_ollama_scan_models_title">Scan Available Models</string>
+	<string name="preference_ollama_scan_models_summary">Check server for available AI models</string>
+	
+	<!-- Default empty arrays for Ollama model ListPreference -->
+	<string-array name="preference_ollama_model_entries">
+		<item>No models found - tap "Scan for models"</item>
+	</string-array>
+	<string-array name="preference_ollama_model_values">
+		<item></item>
+	</string-array>
 </resources>

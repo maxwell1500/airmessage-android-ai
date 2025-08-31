@@ -21,6 +21,7 @@ import android.graphics.Outline;
 import android.graphics.PointF;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.SoundPool;
 import android.net.Uri;
@@ -51,6 +52,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.PopupWindow;
 import android.view.ViewOutlineProvider;
 import android.view.ViewTreeObserver;
 import android.view.animation.AnimationUtils;
@@ -336,10 +338,13 @@ public class Messaging extends AppCompatCompositeActivity {
 	private View attachmentsPanel;
 	private ImageButton buttonSendMessage;
 	private ImageButton buttonGemini;
+	private MaterialButton buttonAIEdit;
 	private FrameLayout buttonAddContent;
 	private InsertionEditText messageInputField;
 	private LinearLayout smartRepliesContainer;
 	private LinearLayout smartRepliesLayout;
+	private LinearLayout enhancedMessagesContainer;
+	private LinearLayout enhancedMessagesLayout;
 	private FloatingActionButton bottomFAB;
 	private TextView bottomFABBadge;
 	private View bottomFABSplash;
@@ -486,10 +491,13 @@ public class Messaging extends AppCompatCompositeActivity {
 		inputBarShadow.setVisibility(View.VISIBLE);
 		buttonSendMessage = inputBar.findViewById(R.id.button_send);
 		buttonGemini = inputBar.findViewById(R.id.button_gemini);
+		buttonAIEdit = findViewById(R.id.button_ai_edit);
 		buttonAddContent = inputBar.findViewById(R.id.button_addcontent);
 		messageInputField = inputBar.findViewById(R.id.messagebox);
 		smartRepliesContainer = inputBar.findViewById(R.id.smart_replies_container);
 		smartRepliesLayout = inputBar.findViewById(R.id.smart_replies_layout);
+		enhancedMessagesContainer = inputBar.findViewById(R.id.enhanced_messages_container);
+		enhancedMessagesLayout = inputBar.findViewById(R.id.enhanced_messages_layout);
 		bottomFAB = findViewById(R.id.fab_bottom);
 		bottomFABBadge = findViewById(R.id.fab_bottom_badge);
 		bottomFABSplash = findViewById(R.id.fab_bottom_splash);
@@ -681,6 +689,7 @@ public class Messaging extends AppCompatCompositeActivity {
 		messageInputField.setOnEditorActionListener(inputFieldEditorActionListener);
 		buttonSendMessage.setOnClickListener(view -> submitInput());
 		buttonGemini.setOnClickListener(view -> showGeminiOptions());
+		buttonAIEdit.setOnClickListener(view -> showAIEditPopup());
 		buttonAddContent.setOnClickListener(view -> {
 			if(viewModel.isAttachmentsPanelOpen) {
 				closeAttachmentsPanel(true);
@@ -1752,7 +1761,7 @@ public class Messaging extends AppCompatCompositeActivity {
 	}
 	
 	/**
-	 * Enhance the current message using Gemini
+	 * Enhance the current message using Gemini with multiple options
 	 */
 	private void enhanceCurrentMessage() {
 		String currentText = messageInputField.getText().toString().trim();
@@ -1764,12 +1773,14 @@ public class Messaging extends AppCompatCompositeActivity {
 		// Show loading indicator
 		buttonGemini.setEnabled(false);
 		
-		GeminiHelper.Companion.getInstance().enhanceMessage(currentText, MessageTone.CASUAL, null)
+		// Hide smart replies when showing enhanced messages
+		smartRepliesContainer.setVisibility(View.GONE);
+		
+		GeminiHelper.Companion.getInstance().enhanceMessageMultiple(Messaging.this, currentText, null)
 			.observeOn(AndroidSchedulers.mainThread())
 			.subscribe(
-				enhancedText -> {
-					messageInputField.setText(enhancedText);
-					messageInputField.setSelection(enhancedText.length());
+				enhancements -> {
+					displayEnhancedMessages(enhancements);
 					buttonGemini.setEnabled(true);
 				},
 				error -> {
@@ -1806,6 +1817,9 @@ public class Messaging extends AppCompatCompositeActivity {
 		
 		// Show loading indicator
 		buttonGemini.setEnabled(false);
+		
+		// Hide enhanced messages when showing smart replies
+		enhancedMessagesContainer.setVisibility(View.GONE);
 		
 		SmartReplyHelper.generateResponses(this, recentMessages, viewModel.conversationInfo)
 			.observeOn(AndroidSchedulers.mainThread())
@@ -1884,6 +1898,57 @@ public class Messaging extends AppCompatCompositeActivity {
 		
 		smartRepliesContainer.setVisibility(View.VISIBLE);
 	}
+
+	/**
+	 * Display enhanced message options with click-to-send and edit functionality
+	 */
+	private void displayEnhancedMessages(List<String> enhancements) {
+		enhancedMessagesLayout.removeAllViews();
+		
+		if (enhancements.isEmpty()) {
+			enhancedMessagesContainer.setVisibility(View.GONE);
+			return;
+		}
+		
+		// Limit to 3 enhancements as requested
+		List<String> limitedEnhancements = enhancements.stream().limit(3).collect(Collectors.toList());
+		
+		for (String enhancement : limitedEnhancements) {
+			// Inflate the enhanced message item layout (reuse smart reply layout)
+			View enhancementItemView = getLayoutInflater().inflate(R.layout.item_smart_reply, enhancedMessagesLayout, false);
+			
+			// Get references to the buttons
+			MaterialButton enhancementButton = enhancementItemView.findViewById(R.id.reply_button);
+			MaterialButton editButton = enhancementItemView.findViewById(R.id.edit_button);
+			
+			// Set the enhanced text (full text will be visible without truncation)
+			enhancementButton.setText(enhancement);
+			
+			// Click-to-send functionality - directly send the message when enhancement button is clicked
+			enhancementButton.setOnClickListener(v -> {
+				// Send the message directly using prepareSendMessages
+				MessageSendHelper.prepareSendMessages(this, viewModel.conversationInfo, enhancement, Collections.emptyList(), pluginCS.getConnectionManager()).subscribe();
+				// Handle message sent (clear input and hide container)
+				handleMessageSent();
+				// Hide the enhanced messages container
+				enhancedMessagesContainer.setVisibility(View.GONE);
+			});
+			
+			// Edit functionality - fill the text input field when edit button is clicked
+			editButton.setOnClickListener(v -> {
+				messageInputField.setText(enhancement);
+				messageInputField.setSelection(enhancement.length());
+				messageInputField.requestFocus();
+				// Hide the enhanced messages container
+				enhancedMessagesContainer.setVisibility(View.GONE);
+			});
+			
+			// Add the enhancement item to the layout
+			enhancedMessagesLayout.addView(enhancementItemView);
+		}
+		
+		enhancedMessagesContainer.setVisibility(View.VISIBLE);
+	}
 	
 	/**
 	 * Summarize the current conversation
@@ -1905,7 +1970,7 @@ public class Messaging extends AppCompatCompositeActivity {
 		// Show loading indicator
 		buttonGemini.setEnabled(false);
 		
-		GeminiHelper.Companion.getInstance().summarizeConversation(recentMessages, viewModel.conversationInfo)
+		GeminiHelper.Companion.getInstance().summarizeConversation(Messaging.this, recentMessages, viewModel.conversationInfo)
 			.observeOn(AndroidSchedulers.mainThread())
 			.subscribe(
 				summary -> {
@@ -1985,8 +2050,9 @@ public class Messaging extends AppCompatCompositeActivity {
 		boolean isCustomTheme = ThemeHelper.isCustomTheme(currentTheme);
 		
 		if (isCustomTheme) {
-			// Apply custom theme colors to input bar components
+			// Apply custom theme colors to input bar and toolbar components
 			applyCustomThemeToInputBar(currentTheme);
+			applyCustomThemeToToolbar(currentTheme);
 		} else {
 			// Apply standard theming
 			//Getting the color
@@ -2078,6 +2144,152 @@ public class Messaging extends AppCompatCompositeActivity {
 		// Update FAB colors with custom theme
 		bottomFAB.setBackgroundTintList(ColorStateList.valueOf(getCustomThemePrimaryColor(currentTheme)));
 		bottomFABBadge.setBackgroundTintList(ColorStateList.valueOf(getCustomThemePrimaryColor(currentTheme)));
+	}
+	
+	/**
+	 * Apply custom theme colors to the toolbar and app bar
+	 */
+	private void applyCustomThemeToToolbar(String currentTheme) {
+		boolean isDarkMode = ThemeHelper.isNightMode(getResources());
+		
+		switch (currentTheme) {
+			case ThemeHelper.themeLuxurious:
+				// Apply luxurious theme colors to toolbar
+				if (isDarkMode) {
+					appBar.setBackgroundColor(getResources().getColor(R.color.luxurious_background_dark, null));
+				} else {
+					appBar.setBackgroundColor(getResources().getColor(R.color.luxurious_background, null));
+				}
+				break;
+			case ThemeHelper.themeOceanBreeze:
+				// Apply ocean breeze theme colors to toolbar
+				if (isDarkMode) {
+					appBar.setBackgroundColor(getResources().getColor(R.color.ocean_background_dark, null));
+				} else {
+					appBar.setBackgroundColor(getResources().getColor(R.color.ocean_background, null));
+				}
+				break;
+			case ThemeHelper.themeSunsetGlow:
+				// Apply sunset glow theme colors to toolbar
+				if (isDarkMode) {
+					appBar.setBackgroundColor(getResources().getColor(R.color.sunset_background_dark, null));
+				} else {
+					appBar.setBackgroundColor(getResources().getColor(R.color.sunset_background, null));
+				}
+				break;
+		}
+	}
+	
+	/**
+	 * Show AI edit popup for grammar, spelling, and punctuation corrections
+	 */
+	private void showAIEditPopup() {
+		String currentText = messageInputField.getText().toString().trim();
+		if (currentText.isEmpty()) {
+			Toast.makeText(this, "Enter some text to check", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		
+		// Inflate the popup layout
+		View popupView = getLayoutInflater().inflate(R.layout.popup_ai_edit, null);
+		
+		// Create popup window
+		PopupWindow popup = new PopupWindow(
+			popupView,
+			ViewGroup.LayoutParams.MATCH_PARENT,
+			ViewGroup.LayoutParams.WRAP_CONTENT,
+			true
+		);
+		
+		// Set popup properties
+		popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+		popup.setElevation(16f);
+		popup.setAnimationStyle(android.R.style.Animation_Dialog);
+		
+		// Get views from popup
+		TextView correctedTextView = popupView.findViewById(R.id.ai_corrected_text);
+		MaterialButton btnCancel = popupView.findViewById(R.id.btn_cancel);
+		MaterialButton btnEdit = popupView.findViewById(R.id.btn_edit);
+		MaterialButton btnRetry = popupView.findViewById(R.id.btn_retry);
+		MaterialButton btnSend = popupView.findViewById(R.id.btn_send);
+		
+		// Store original text for cancel/edit operations
+		final String originalText = currentText;
+		
+		// Show loading text initially
+		correctedTextView.setText("Checking grammar and spelling...");
+		
+		// Disable buttons while processing
+		btnEdit.setEnabled(false);
+		btnSend.setEnabled(false);
+		btnRetry.setEnabled(false);
+		
+		// Function to perform grammar check
+		Runnable performGrammarCheck = () -> {
+			GeminiHelper.Companion.getInstance().checkGrammarAndSpelling(Messaging.this, originalText)
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe(
+					correctedText -> {
+						correctedTextView.setText(correctedText);
+						btnEdit.setEnabled(true);
+						btnSend.setEnabled(true);
+						btnRetry.setEnabled(true);
+						
+						// Store corrected text for button actions
+						popupView.setTag(correctedText);
+					},
+					error -> {
+						String errorMessage = "AI grammar check unavailable";
+						if (error.getMessage() != null) {
+							if (error.getMessage().contains("sign in") || error.getMessage().contains("Google account")) {
+								errorMessage = "Please sign in with your Google account to use AI features";
+							} else if (error.getMessage().contains("additional setup")) {
+								errorMessage = "AI features require additional setup";
+							}
+						}
+						correctedTextView.setText(errorMessage);
+						btnEdit.setEnabled(true);
+						btnRetry.setEnabled(true);
+						// Keep send button disabled on error
+					}
+				);
+		};
+		
+		// Perform initial grammar check
+		performGrammarCheck.run();
+		
+		// Set up button click listeners
+		btnCancel.setOnClickListener(v -> popup.dismiss());
+		
+		btnEdit.setOnClickListener(v -> {
+			String textToEdit = (String) popupView.getTag();
+			if (textToEdit != null && !textToEdit.isEmpty()) {
+				messageInputField.setText(textToEdit);
+				messageInputField.setSelection(textToEdit.length());
+				messageInputField.requestFocus();
+			}
+			popup.dismiss();
+		});
+		
+		btnRetry.setOnClickListener(v -> {
+			correctedTextView.setText("Checking grammar and spelling...");
+			btnEdit.setEnabled(false);
+			btnSend.setEnabled(false);
+			btnRetry.setEnabled(false);
+			performGrammarCheck.run();
+		});
+		
+		btnSend.setOnClickListener(v -> {
+			String textToSend = (String) popupView.getTag();
+			if (textToSend != null && !textToSend.isEmpty()) {
+				MessageSendHelper.prepareSendMessages(this, viewModel.conversationInfo, textToSend, Collections.emptyList(), pluginCS.getConnectionManager()).subscribe();
+				handleMessageSent();
+			}
+			popup.dismiss();
+		});
+		
+		// Show popup centered on screen
+		popup.showAtLocation(messageInputField, Gravity.CENTER, 0, 0);
 	}
 	
 	/**
@@ -3195,10 +3407,18 @@ public class Messaging extends AppCompatCompositeActivity {
 					textColorSecondary = ColorUtils.setAlphaComponent(textColor, 179);
 					backgroundColor = ColorUtils.setAlphaComponent(targetColor, 50);
 				} else {
-					// For incoming messages, use higher contrast colors when custom themes are active
+					// For incoming messages, use appropriate contrast colors based on theme and mode
 					if (isCustomTheme) {
-						textColor = getResources().getColor(android.R.color.white, null); // High contrast white text
-						textColorSecondary = ColorUtils.setAlphaComponent(textColor, 204); // 80% alpha white
+						boolean isDarkMode = ThemeHelper.isNightMode(getResources());
+						if (isDarkMode) {
+							// Dark mode: use light text on dark gradient backgrounds
+							textColor = getResources().getColor(android.R.color.white, null);
+							textColorSecondary = ColorUtils.setAlphaComponent(textColor, 204);
+						} else {
+							// Light mode: use dark text on light gradient backgrounds  
+							textColor = getResources().getColor(android.R.color.black, null);
+							textColorSecondary = ColorUtils.setAlphaComponent(textColor, 179);
+						}
 					} else {
 						textColor = ResourceHelper.resolveColorAttr(Messaging.this, android.R.attr.textColorPrimary);
 						textColorSecondary = ResourceHelper.resolveColorAttr(Messaging.this, android.R.attr.textColorSecondary);

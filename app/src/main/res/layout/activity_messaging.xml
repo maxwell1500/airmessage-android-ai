@@ -206,6 +206,27 @@
 			</LinearLayout>
 		</LinearLayout>
 
+		<!-- Enhanced messages -->
+		<LinearLayout
+			android:id="@+id/enhanced_messages_container"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:visibility="gone"
+			android:orientation="vertical"
+			android:paddingTop="8dp"
+			android:paddingBottom="8dp"
+			android:paddingStart="16dp"
+			android:paddingEnd="16dp">
+			
+			<LinearLayout
+				android:id="@+id/enhanced_messages_layout"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:orientation="vertical">
+				<!-- Enhanced messages will be dynamically added here -->
+			</LinearLayout>
+		</LinearLayout>
+
 		<!-- Text input -->
 		<LinearLayout
 			android:id="@+id/inputbar_text"
@@ -319,6 +340,29 @@
 					android:tint="?android:attr/colorControlNormal"
 					android:tooltipText="@string/action_send" />
 			</androidx.constraintlayout.widget.ConstraintLayout>
+		</LinearLayout>
+
+		<!-- AI Edit Mode button -->
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:orientation="horizontal"
+			android:padding="8dp"
+			android:gravity="center">
+			
+			<com.google.android.material.button.MaterialButton
+				android:id="@+id/button_ai_edit"
+				style="@style/Widget.Material3.Button.OutlinedButton.Icon"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="Grammar Check"
+				android:textSize="14sp"
+				app:icon="@drawable/check_circle"
+				app:iconTint="@color/colorAccent"
+				android:textColor="@color/colorAccent"
+				app:strokeColor="@color/colorAccent"
+				android:contentDescription="AI Grammar Check"
+				android:tooltipText="Check grammar, spelling, and punctuation" />
 		</LinearLayout>
 
 		<!-- Attachments section -->

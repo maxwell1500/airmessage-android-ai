@@ -55,7 +55,7 @@ object SmartReplyHelper {
 		
 		// Try Gemini first for enhanced AI-powered responses
 		return if(conversationInfo != null && isGeminiAvailable()) {
-			generateResponsesGemini(sortedMessages, conversationInfo)
+			generateResponsesGemini(context, sortedMessages, conversationInfo)
 				.onErrorResumeNext { fallbackToClassicApproach(context, sortedMessages) }
 		} else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
 			//Use TextClassifier
@@ -106,9 +106,9 @@ object SmartReplyHelper {
 	 * Generate responses using Gemini AI for enhanced context-aware replies
 	 */
 	@CheckReturnValue
-	private fun generateResponsesGemini(messages: List<MessageInfo>, conversationInfo: ConversationInfo): Single<List<AMConversationAction>> {
+	private fun generateResponsesGemini(context: Context, messages: List<MessageInfo>, conversationInfo: ConversationInfo): Single<List<AMConversationAction>> {
 		return GeminiHelper.getInstance()
-			.generateSmartReplies(messages, conversationInfo)
+			.generateSmartReplies(context, messages, conversationInfo)
 			.map { replies -> replies.map { AMConversationAction.createReplyAction(it) } }
 			.observeOn(AndroidSchedulers.mainThread())
 	}
