@@ -609,6 +609,14 @@
 	<string name="preference_ai_content_analysis_key">ai_content_analysis</string>
 	<string name="preference_ai_content_analysis_title">Content Analysis</string>
 	<string name="preference_ai_content_analysis_description">Analyze messages for spam, inappropriate content, or privacy issues</string>
+	<string name="preference_ai_conversation_memory_key">ai_conversation_memory</string>
+	<string name="preference_ai_conversation_memory_title">Contextual Memory</string>
+	<string name="preference_ai_conversation_memory_description">Store key information across conversations for smarter replies</string>
+	<string name="preference_ai_memory_limit_title">Memory Size</string>
+	<string name="preference_ai_memory_limit_description">Number of messages to keep in contextual memory (10-200)</string>
+	<string name="preference_ai_memory_manage_key">ai_memory_manage</string>
+	<string name="preference_ai_memory_manage_title">Manage Memory</string>
+	<string name="preference_ai_memory_manage_description">View and clear stored contextual information</string>
 	
 	<!-- Ollama Configuration -->
 	<string name="preferencegroup_ollama_key">ollama_config</string>

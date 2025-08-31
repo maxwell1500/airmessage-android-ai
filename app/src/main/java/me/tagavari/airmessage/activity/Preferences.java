@@ -83,6 +83,7 @@ import me.tagavari.airmessage.data.MessagesDataHelper;
 import me.tagavari.airmessage.data.SharedPreferencesManager;
 import me.tagavari.airmessage.enums.ProxyType;
 import me.tagavari.airmessage.flavor.FirebaseAuthBridge;
+import me.tagavari.airmessage.helper.ConversationMemoryManager;
 import me.tagavari.airmessage.helper.LanguageHelper;
 import me.tagavari.airmessage.helper.MMSSMSHelper;
 import me.tagavari.airmessage.helper.NotificationHelper;
@@ -270,6 +271,41 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 			//Returning true (to allow the change)
 			return true;
 		}; */
+		Preference.OnPreferenceClickListener memoryManageClickListener = preference -> {
+			//Creating a dialog to show memory contents and allow clearing
+			AlertDialog dialog = new MaterialAlertDialogBuilder(getActivity())
+					.setTitle("Conversation Memory")
+					.setMessage("View and manage stored contextual information from conversations.")
+					.setNegativeButton(android.R.string.cancel, null)
+					.setPositiveButton("View Details", (dialogInterface, which) -> {
+						//TODO: Show detailed memory viewer
+						Toast.makeText(getActivity(), "Memory viewer coming soon!", Toast.LENGTH_SHORT).show();
+					})
+					.setNeutralButton("Clear All", (dialogInterface, which) -> {
+						//Confirm clearing memory
+						new MaterialAlertDialogBuilder(getActivity())
+								.setTitle("Clear Memory")
+								.setMessage("Are you sure you want to clear all stored conversation memory? This cannot be undone.")
+								.setNegativeButton(android.R.string.cancel, null)
+								.setPositiveButton("Clear", (d, w) -> {
+									//Clear memory
+									ConversationMemoryManager.clearAllMemories(getActivity())
+											.subscribe(
+													() -> Toast.makeText(getActivity(), "Conversation memory cleared", Toast.LENGTH_SHORT).show(),
+													error -> Toast.makeText(getActivity(), "Failed to clear memory", Toast.LENGTH_SHORT).show()
+											);
+								})
+								.show();
+					})
+					.create();
+			
+			//Displaying the dialog
+			dialog.show();
+			
+			//Returning true
+			return true;
+		};
+		
 		Preference.OnPreferenceClickListener deleteAttachmentsClickListener = preference -> {
 			//Creating a dialog
 			AlertDialog dialog = new MaterialAlertDialogBuilder(getActivity())
@@ -597,6 +633,12 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 			}
 			findPreference(getResources().getString(R.string.preference_storage_deleteattachments_key)).setOnPreferenceClickListener(deleteAttachmentsClickListener);
 			findPreference(getResources().getString(R.string.preference_server_downloadmessages_key)).setOnPreferenceClickListener(syncMessagesClickListener);
+			
+			//Setting up memory management click listener
+			{
+				Preference preference = findPreference(getResources().getString(R.string.preference_ai_memory_manage_key));
+				if(preference != null) preference.setOnPreferenceClickListener(memoryManageClickListener);
+			}
 			findPreference(getResources().getString(R.string.preference_appearance_theme_key)).setOnPreferenceChangeListener(themeChangeListener);
 			{
 				Preference preference = findPreference(getResources().getString(R.string.preference_account_accountdetails_key));

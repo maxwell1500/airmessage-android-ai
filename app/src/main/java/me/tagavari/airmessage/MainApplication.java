@@ -36,6 +36,7 @@ import me.tagavari.airmessage.flavor.MapsBridge;
 import me.tagavari.airmessage.helper.NotificationHelper;
 import me.tagavari.airmessage.helper.ThemeHelper;
 import me.tagavari.airmessage.redux.ReduxEmitterNetwork;
+import me.tagavari.airmessage.redux.ReduxReceiverConversationMemory;
 import me.tagavari.airmessage.redux.ReduxReceiverFaceTime;
 import me.tagavari.airmessage.redux.ReduxReceiverNotification;
 import me.tagavari.airmessage.redux.ReduxReceiverShortcut;
@@ -128,6 +129,7 @@ public class MainApplication extends Application {
 		}
 		new ReduxReceiverNotification(this).initialize();
 		new ReduxReceiverFaceTime(this).initialize();
+		ReduxReceiverConversationMemory.initialize(this);
 		
 		//Checking if text message integration is not permitted
 		if(!Preferences.isTextMessageIntegrationActive(this)) {

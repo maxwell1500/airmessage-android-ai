@@ -92,7 +92,7 @@ class MessageCompositionAssistant(
         val currentText = messageField.text.toString()
         return if (currentText.isNotEmpty()) {
             val contextString = buildConversationContext()
-            geminiHelper.enhanceMessage(context, currentText, enhancementTone, contextString)
+            geminiHelper.enhanceMessage(context, currentText, enhancementTone, contextString, conversationInfo)
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnSuccess { enhanced ->
                     onEnhancementAvailable?.invoke(enhanced)

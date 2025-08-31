@@ -1,6 +1,7 @@
 package me.tagavari.airmessage.helper
 
 import android.content.Context
+import android.util.Log
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.rx3.rxSingle
@@ -133,7 +134,17 @@ abstract class GeminiHelper protected constructor() {
             }
             
             val conversationContext = buildConversationContext(conversationMessages, conversationInfo)
-            val prompt = buildSmartReplyPrompt(conversationContext, conversationInfo.isGroupChat)
+            
+            // Get contextual memories for enhanced smart replies
+            val contextualMemories = try {
+                ConversationMemoryManager.getContextualMemories(context, conversationInfo)
+                    .blockingGet()
+            } catch (e: Exception) {
+                Log.w("GeminiHelper", "Failed to retrieve contextual memories", e)
+                emptyList<ConversationMemoryManager.MemoryItem>()
+            }
+            
+            val prompt = buildSmartReplyPrompt(conversationContext, conversationInfo.isGroupChat, contextualMemories)
             
             val response = callAIAPI(context, prompt)
             parseSmartReplies(response)
@@ -210,7 +221,8 @@ abstract class GeminiHelper protected constructor() {
         context: Context,
         originalMessage: String,
         tone: MessageTone = MessageTone.NEUTRAL,
-        messageContext: String? = null
+        messageContext: String? = null,
+        conversationInfo: ConversationInfo? = null
     ): Single<String> {
         return rxSingle {
             val aiProvider = Preferences.getPreferenceAIProvider(context)
@@ -243,7 +255,20 @@ abstract class GeminiHelper protected constructor() {
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
             }
             
-            val prompt = buildEnhanceMessagePrompt(originalMessage, tone, messageContext)
+            // Retrieve contextual memories for enhanced message completion
+            val contextualMemories = try {
+                if (conversationInfo != null) {
+                    ConversationMemoryManager.getContextualMemories(context, conversationInfo, originalMessage)
+                        .blockingGet()
+                } else {
+                    emptyList<ConversationMemoryManager.MemoryItem>()
+                }
+            } catch (e: Exception) {
+                Log.w("GeminiHelper", "Failed to retrieve contextual memories for enhancement", e)
+                emptyList<ConversationMemoryManager.MemoryItem>()
+            }
+            
+            val prompt = buildEnhanceMessagePrompt(originalMessage, tone, messageContext, contextualMemories)
             val response = callAIAPI(context, prompt)
             
             val cleanedResponse = cleanEnhancedMessageResponse(response)
@@ -257,7 +282,8 @@ abstract class GeminiHelper protected constructor() {
     fun enhanceMessageMultiple(
         context: Context,
         originalMessage: String,
-        messageContext: String? = null
+        messageContext: String? = null,
+        conversationInfo: ConversationInfo? = null
     ): Single<List<String>> {
         return rxSingle {
             val aiProvider = Preferences.getPreferenceAIProvider(context)
@@ -290,7 +316,20 @@ abstract class GeminiHelper protected constructor() {
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
             }
             
-            val prompt = buildEnhanceMessageMultiplePrompt(originalMessage, messageContext)
+            // Retrieve contextual memories for enhanced message completion
+            val contextualMemories = try {
+                if (conversationInfo != null) {
+                    ConversationMemoryManager.getContextualMemories(context, conversationInfo, originalMessage)
+                        .blockingGet()
+                } else {
+                    emptyList<ConversationMemoryManager.MemoryItem>()
+                }
+            } catch (e: Exception) {
+                Log.w("GeminiHelper", "Failed to retrieve contextual memories for enhancement", e)
+                emptyList<ConversationMemoryManager.MemoryItem>()
+            }
+            
+            val prompt = buildEnhanceMessageMultiplePrompt(originalMessage, messageContext, contextualMemories)
             val response = callAIAPI(context, prompt)
             
             parseMultipleEnhancements(response)
@@ -531,18 +570,27 @@ abstract class GeminiHelper protected constructor() {
         return context.toString()
     }
     
-    private fun buildSmartReplyPrompt(context: String, isGroupChat: Boolean): String {
+    private fun buildSmartReplyPrompt(context: String, isGroupChat: Boolean, contextualMemories: List<ConversationMemoryManager.MemoryItem> = emptyList()): String {
+        val memoryContext = if (contextualMemories.isNotEmpty()) {
+            val memoryInfo = contextualMemories.take(5).joinToString("\n") { memory ->
+                "- ${memory.extractedInfo} (from ${memory.conversationTitle ?: "another conversation"})"
+            }
+            "\nAdditional context from other conversations:\n$memoryInfo\n"
+        } else ""
+        
         return """
             Based on the following conversation, generate ${MAX_SMART_REPLIES} appropriate reply suggestions.
             The replies should be:
-            - Contextually relevant
+            - Contextually relevant and informed by all available information
             - Natural and conversational
             - Appropriate for a ${if (isGroupChat) "group chat" else "direct message"} setting
             - Brief (1-2 sentences max)
             - Diverse in tone and content
+            - Reference information from other conversations when relevant and helpful
             
+            Current conversation:
             $context
-            
+            $memoryContext
             Provide exactly ${MAX_SMART_REPLIES} reply options, each on a new line, without numbering or formatting:
         """.trimIndent()
     }
@@ -550,7 +598,8 @@ abstract class GeminiHelper protected constructor() {
     private fun buildEnhanceMessagePrompt(
         originalMessage: String,
         tone: MessageTone,
-        context: String?
+        context: String?,
+        contextualMemories: List<ConversationMemoryManager.MemoryItem> = emptyList()
     ): String {
         val toneDescription = when (tone) {
             MessageTone.FORMAL -> "formal and professional"
@@ -559,21 +608,33 @@ abstract class GeminiHelper protected constructor() {
             MessageTone.NEUTRAL -> "clear and natural"
         }
         
+        val memoryContext = if (contextualMemories.isNotEmpty()) {
+            val relevantMemories = contextualMemories.joinToString("\n") { "• ${it.extractedInfo} (from ${it.conversationTitle ?: "conversation"})" }
+            "Relevant information from your other conversations:\n$relevantMemories\n\n"
+        } else ""
+        
         return """
             Please improve the following message to be more $toneDescription while maintaining its original meaning.
             Fix any grammar or spelling errors, and make it clearer and more engaging.
-            ${context?.let { "Context: $it\n" } ?: ""}
             
+            ${memoryContext}${context?.let { "Context: $it\n" } ?: ""}
             Original message: "$originalMessage"
             
+            If the message appears incomplete (like "the google code is"), use the relevant information above to help complete it naturally.
             Return ONLY the improved message text. Do not use quotation marks, labels, formatting, or prefixes. Just return the plain improved message:
         """.trimIndent()
     }
     
     private fun buildEnhanceMessageMultiplePrompt(
         originalMessage: String,
-        context: String?
+        context: String?,
+        contextualMemories: List<ConversationMemoryManager.MemoryItem> = emptyList()
     ): String {
+        val memoryContext = if (contextualMemories.isNotEmpty()) {
+            val relevantMemories = contextualMemories.joinToString("\n") { "• ${it.extractedInfo} (from ${it.conversationTitle ?: "conversation"})" }
+            "Relevant information from your other conversations:\n$relevantMemories\n\n"
+        } else ""
+        
         return """
             Please provide 3 different improved versions of this message. Do not use brackets or placeholders - provide the actual enhanced text.
             
@@ -582,9 +643,11 @@ abstract class GeminiHelper protected constructor() {
             3. Make it enthusiastic and engaging
             
             Each version should maintain the original meaning while improving grammar, clarity, and tone.
-            ${context?.let { "Context: $it\n" } ?: ""}
             
+            ${memoryContext}${context?.let { "Context: $it\n" } ?: ""}
             Original message: "$originalMessage"
+            
+            If the message appears incomplete (like "the google code is"), use the relevant information above to help complete it naturally.
             
             Response format (provide actual text, not placeholders):
             1: 

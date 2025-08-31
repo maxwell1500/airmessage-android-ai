@@ -52,7 +52,6 @@ AirMessage's AI features are powered by [Ollama](https://ollama.ai/), a self-hos
    ```
 
 3. **Configure your server**:
-   - The app is pre-configured to connect to `maxwell15000.ddns.net:11434`
    - To use your own server, update the Ollama endpoint in the app settings
    - Ensure your server is accessible via HTTP (port 11434 by default)
 
