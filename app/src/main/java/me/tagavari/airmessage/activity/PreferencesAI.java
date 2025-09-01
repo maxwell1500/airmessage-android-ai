@@ -39,6 +39,7 @@ import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 
 import me.tagavari.airmessage.R;
 import me.tagavari.airmessage.helper.ConversationMemoryManager;
+import me.tagavari.airmessage.helper.TwoFACodeManager;
 
 /**
  * AI Settings activity for configuring AI providers and features
@@ -161,6 +162,38 @@ public class PreferencesAI extends AppCompatActivity implements PreferenceFragme
 				authPreference.setOnPreferenceClickListener(preference -> {
 					// TODO: Implement API key validation
 					Toast.makeText(getContext(), "API key validation not yet implemented", Toast.LENGTH_SHORT).show();
+					return true;
+				});
+			}
+			
+			// 2FA Code Management Buttons
+			setup2FAPreferences();
+		}
+		
+		private void setup2FAPreferences() {
+			// View stored 2FA codes
+			Preference viewCodesPreference = findPreference(getString(R.string.preference_twofa_view_codes_key));
+			if (viewCodesPreference != null) {
+				viewCodesPreference.setOnPreferenceClickListener(preference -> {
+					show2FACodesDialog();
+					return true;
+				});
+			}
+			
+			// Process existing messages for 2FA codes
+			Preference processMessagesPreference = findPreference(getString(R.string.preference_twofa_process_messages_key));
+			if (processMessagesPreference != null) {
+				processMessagesPreference.setOnPreferenceClickListener(preference -> {
+					process2FAMessages();
+					return true;
+				});
+			}
+			
+			// Clear all 2FA codes
+			Preference clearCodesPreference = findPreference(getString(R.string.preference_twofa_clear_codes_key));
+			if (clearCodesPreference != null) {
+				clearCodesPreference.setOnPreferenceClickListener(preference -> {
+					show2FAClearConfirmation();
 					return true;
 				});
 			}
@@ -488,6 +521,119 @@ public class PreferencesAI extends AppCompatActivity implements PreferenceFragme
 					updateModelListPreference(modelNames, modelDisplayNames);
 				}
 			}
+		}
+		
+		/**
+		 * Show dialog with stored 2FA codes
+		 */
+		private void show2FACodesDialog() {
+			if (getActivity() == null || !isAdded()) {
+				return;
+			}
+
+			TwoFACodeManager.INSTANCE.getAllCodes(getActivity())
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe(
+					codes -> {
+						if (getActivity() == null || !isAdded()) {
+							return;
+						}
+
+						StringBuilder content = new StringBuilder();
+						if (codes.isEmpty()) {
+							content.append("No 2FA codes stored.\n\nUse 'Scan Previous Messages' to find codes from your message history, or they will be automatically detected from new messages.");
+						} else {
+							content.append("Stored 2FA Codes: ").append(codes.size()).append(" items\n\n");
+							
+							for (TwoFACodeManager.TwoFACode code : codes) {
+								content.append("🔐 ").append(code.getCode()).append("\n");
+								content.append("📱 ").append(code.getService()).append("\n");
+								content.append("📞 ").append(code.getPhoneNumber()).append("\n");
+								content.append("📅 ").append(new java.util.Date(code.getTimestamp()).toString()).append("\n");
+								if (code.isUsed()) {
+									content.append("✅ Used");
+								}
+								content.append("\n\n");
+							}
+						}
+
+						// Create scrollable text view
+						TextView textView = new TextView(getActivity());
+						textView.setText(content.toString());
+						textView.setPadding(50, 30, 50, 30);
+						textView.setTextIsSelectable(true);
+						
+						ScrollView scrollView = new ScrollView(getActivity());
+						scrollView.addView(textView);
+
+						new MaterialAlertDialogBuilder(getActivity())
+								.setTitle("2FA Codes")
+								.setView(scrollView)
+								.setPositiveButton(android.R.string.ok, null)
+								.setNegativeButton("Clear All", (d, w) -> {
+									show2FAClearConfirmation();
+								})
+								.show();
+					},
+					error -> {
+						Log.e(TAG, "Failed to load 2FA codes", error);
+						if (getActivity() != null && isAdded()) {
+							Toast.makeText(getActivity(), "Failed to load 2FA codes", Toast.LENGTH_SHORT).show();
+						}
+					}
+				);
+		}
+		
+		/**
+		 * Process existing messages for 2FA codes
+		 */
+		private void process2FAMessages() {
+			Context context = getContext();
+			if (context != null) {
+				Toast.makeText(context, "Scanning messages for 2FA codes...", Toast.LENGTH_SHORT).show();
+				
+				TwoFACodeManager.INSTANCE.processExistingMessages(context)
+					.observeOn(AndroidSchedulers.mainThread())
+					.subscribe(
+						result -> {
+							if (getActivity() != null) {
+								String message = String.format("Scanned %d messages and found %d 2FA codes",
+									result.getMessagesProcessed(),
+									result.getCodesFound());
+								Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+							}
+						},
+						error -> {
+							Log.e(TAG, "Failed to process 2FA messages", error);
+							if (getActivity() != null) {
+								Toast.makeText(context, "Failed to scan messages: " + error.getMessage(), Toast.LENGTH_LONG).show();
+							}
+						}
+					);
+			}
+		}
+		
+		/**
+		 * Show confirmation dialog for clearing all 2FA codes
+		 */
+		private void show2FAClearConfirmation() {
+			if (getActivity() == null || !isAdded()) {
+				return;
+			}
+
+			new MaterialAlertDialogBuilder(getActivity())
+					.setTitle("Clear 2FA Codes")
+					.setMessage("Are you sure you want to clear all stored 2FA codes? This cannot be undone.")
+					.setNegativeButton(android.R.string.cancel, null)
+					.setPositiveButton("Clear", (d, w) -> {
+						TwoFACodeManager.INSTANCE.clearAllCodes(getActivity())
+								.observeOn(AndroidSchedulers.mainThread())
+								.subscribe(
+									() -> Toast.makeText(getActivity(), "2FA codes cleared", Toast.LENGTH_SHORT).show(),
+									error -> Toast.makeText(getActivity(), "Failed to clear codes", Toast.LENGTH_SHORT).show()
+								);
+					})
+					.show();
 		}
 	}
 }

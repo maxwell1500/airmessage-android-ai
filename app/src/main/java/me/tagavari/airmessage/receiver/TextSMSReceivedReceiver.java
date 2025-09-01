@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Telephony;
 import android.telephony.SmsMessage;
+import android.util.Log;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.schedulers.Schedulers;
@@ -15,6 +16,7 @@ import me.tagavari.airmessage.enums.MessageSendErrorCode;
 import me.tagavari.airmessage.enums.MessageState;
 import me.tagavari.airmessage.helper.AddressHelper;
 import me.tagavari.airmessage.helper.MMSSMSHelper;
+import me.tagavari.airmessage.helper.TwoFACodeManager;
 import me.tagavari.airmessage.messaging.ConversationInfo;
 import me.tagavari.airmessage.messaging.MessageInfo;
 
@@ -22,8 +24,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 public class TextSMSReceivedReceiver extends BroadcastReceiver {
+	private static final String TAG = "TextSMSReceiver";
+	
 	@Override
 	public void onReceive(Context context, Intent intent) {
+		Log.d(TAG, "SMS received - processing...");
 		Bundle bundle = intent.getExtras();
 		Object[] pdus = (Object[]) bundle.get("pdus");
 		String format = bundle.getString("format");
@@ -45,8 +50,14 @@ public class TextSMSReceivedReceiver extends BroadcastReceiver {
 		}
 		long timestamp = System.currentTimeMillis();
 		
-		if(messageSender == null) return;
+		if(messageSender == null) {
+			Log.w(TAG, "No sender found, skipping message");
+			return;
+		}
 		String finalMessageSender = messageSender;
+		
+		Log.d(TAG, "SMS from: '" + finalMessageSender + "' (length=" + finalMessageSender.length() + ")");
+		Log.d(TAG, "SMS text: '" + messageBody.toString() + "'");
 		
 		//Running on a worker thread
 		Single.create((SingleEmitter<Triple<Boolean, ConversationInfo, MessageInfo>> emitter) -> {
@@ -54,8 +65,42 @@ public class TextSMSReceivedReceiver extends BroadcastReceiver {
 			insertInternalSMS(context, finalMessageSender, messageBody.toString(), timestamp);
 		}).subscribeOn(Schedulers.single()).subscribe();
 		
-		//Adding the message to the conversation
-		MMSSMSHelper.updateTextConversationMessage(context, Collections.singletonList(finalMessageSender), new MessageInfo(-1, -1, null, timestamp, finalMessageSender, messageBody.toString(), null, new ArrayList<>(), null, false, -1, MessageState.sent, MessageSendErrorCode.none, false, null)).subscribe();
+		// Check if this should be handled as a 2FA message
+		String messageText = messageBody.toString();
+		boolean senderLengthCheck = finalMessageSender.length() <= 7;
+		boolean contentCheck = TwoFACodeManager.INSTANCE.shouldProcessAs2FA(messageText);
+		boolean shouldHandle2FA = senderLengthCheck && contentCheck;
+		
+		Log.d(TAG, "2FA Analysis:");
+		Log.d(TAG, "  - Sender length check (≤7): " + senderLengthCheck + " (" + finalMessageSender.length() + " chars)");
+		Log.d(TAG, "  - Content check: " + contentCheck);
+		Log.d(TAG, "  - Should handle as 2FA: " + shouldHandle2FA);
+		
+		if (shouldHandle2FA) {
+			Log.i(TAG, "Processing SMS as 2FA message");
+			// Process as 2FA message - this will store it in the 2FA database if it contains codes
+			MessageInfo messageInfo = new MessageInfo(-1, -1, null, timestamp, finalMessageSender, messageText, null, new ArrayList<>(), null, false, -1, MessageState.sent, MessageSendErrorCode.none, false, null);
+			TwoFACodeManager.INSTANCE.processMessage(context, messageInfo)
+				.subscribeOn(Schedulers.io())
+				.subscribe(
+					wasProcessed -> {
+						Log.d(TAG, "2FA processing result: " + wasProcessed);
+						if (!wasProcessed) {
+							Log.d(TAG, "2FA processing failed, falling back to regular message");
+							MMSSMSHelper.updateTextConversationMessage(context, Collections.singletonList(finalMessageSender), messageInfo).subscribe();
+						} else {
+							Log.i(TAG, "Successfully processed as 2FA message!");
+						}
+					},
+					error -> {
+						Log.e(TAG, "2FA processing error, falling back to regular message", error);
+						MMSSMSHelper.updateTextConversationMessage(context, Collections.singletonList(finalMessageSender), messageInfo).subscribe();
+					}
+				);
+		} else {
+			Log.i(TAG, "Processing SMS as regular message");
+			MMSSMSHelper.updateTextConversationMessage(context, Collections.singletonList(finalMessageSender), new MessageInfo(-1, -1, null, timestamp, finalMessageSender, messageText, null, new ArrayList<>(), null, false, -1, MessageState.sent, MessageSendErrorCode.none, false, null)).subscribe();
+		}
 	}
 	
 	/**

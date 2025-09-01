@@ -675,4 +675,20 @@
 		<item>gpt-oss:20b</item>
 		<item>gpt-oss:120b</item>
 	</string-array>
+	
+	<!-- 2FA Code Detection -->
+	<string name="preferencegroup_twofa_key">twofa_detection</string>
+	<string name="preferencegroup_twofa_title">2FA Code Detection</string>
+	<string name="preference_twofa_enabled_key">twofa_detection_enabled</string>
+	<string name="preference_twofa_enabled_title">Auto-detect 2FA Codes</string>
+	<string name="preference_twofa_enabled_description">Automatically extract verification codes from incoming messages</string>
+	<string name="preference_twofa_view_codes_key">twofa_view_codes</string>
+	<string name="preference_twofa_view_codes_title">View Stored Codes</string>
+	<string name="preference_twofa_view_codes_description">View the last 3 detected verification codes</string>
+	<string name="preference_twofa_process_messages_key">twofa_process_messages</string>
+	<string name="preference_twofa_process_messages_title">Scan Previous Messages</string>
+	<string name="preference_twofa_process_messages_description">Analyze recent messages for 2FA codes (last 40 messages)</string>
+	<string name="preference_twofa_clear_codes_key">twofa_clear_codes</string>
+	<string name="preference_twofa_clear_codes_title">Clear All Codes</string>
+	<string name="preference_twofa_clear_codes_description">Delete all stored verification codes</string>
 </resources>

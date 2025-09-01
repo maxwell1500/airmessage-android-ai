@@ -106,20 +106,32 @@ object ConversationMemoryManager {
                 val memoryFile = getMemoryFile(context)
                 val memoryStore = loadMemoryStore(context)
                 
-                // Add the new item
-                memoryStore.items.add(extractedInfo)
-                
-                // Enforce message limit by removing oldest items
-                val messageLimit = getMessageLimit(context)
-                while (memoryStore.items.size > messageLimit) {
-                    memoryStore.items.removeAt(0) // Remove oldest
+                // Check for duplicates based on original message content and conversation
+                val isDuplicate = memoryStore.items.any { item ->
+                    item.conversationGuid == extractedInfo.conversationGuid && 
+                    item.originalMessage == extractedInfo.originalMessage
                 }
                 
-                // Update timestamp
-                memoryStore.lastUpdated = System.currentTimeMillis()
-                
-                // Save to file
-                saveMemoryStore(memoryFile, memoryStore)
+                if (!isDuplicate) {
+                    // Add the new item
+                    memoryStore.items.add(extractedInfo)
+                    
+                    // Enforce message limit by removing oldest items
+                    val messageLimit = getMessageLimit(context)
+                    while (memoryStore.items.size > messageLimit) {
+                        memoryStore.items.removeAt(0) // Remove oldest
+                    }
+                    
+                    // Update timestamp
+                    memoryStore.lastUpdated = System.currentTimeMillis()
+                    
+                    // Save to file
+                    saveMemoryStore(memoryFile, memoryStore)
+                    
+                    Log.d(TAG, "Added new memory item for conversation: ${extractedInfo.conversationGuid}")
+                } else {
+                    Log.d(TAG, "Skipping duplicate memory item for message: ${messageText.take(50)}")
+                }
                 
                 Log.d(TAG, "Added memory item: ${extractedInfo.extractedInfo}")
             }
@@ -504,7 +516,7 @@ Be generous in extracting information - when in doubt, include it if it might be
                 
                 if (extractedInfo.isNotBlank()) {
                     MemoryItem(
-                        id = "${conversation.guid ?: "unknown"}_${System.currentTimeMillis()}",
+                        id = "${conversation.guid ?: "unknown"}_${messageText.hashCode()}",
                         conversationGuid = conversation.guid ?: "",
                         conversationTitle = conversation.title,
                         extractedInfo = extractedInfo,
@@ -757,11 +769,18 @@ Be generous in extracting information - when in doubt, include it if it might be
                 }
                 
                 // Sort all messages by date and take the most recent ones up to the limit
+                // Then reverse so we process newest messages first
                 val messagesToProcess = allMessages
                     .sortedBy { it.first.date }
                     .takeLast(messageLimit)
+                    .reversed() // Process newest messages first
                 
                 Log.d(TAG, "Processing ${messagesToProcess.size} messages total (from ${allMessages.size} available messages)")
+                if (messagesToProcess.isNotEmpty()) {
+                    val firstDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date(messagesToProcess.first().first.date))
+                    val lastDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date(messagesToProcess.last().first.date))
+                    Log.d(TAG, "Processing messages from $firstDate (newest) to $lastDate (oldest)")
+                }
                 
                 val processedConversations = mutableSetOf<String>()
                 
@@ -807,21 +826,31 @@ Be generous in extracting information - when in doubt, include it if it might be
                                 val memoryFile = getMemoryFile(context)
                                 val memoryStore = loadMemoryStore(context)
                                 
-                                // Add the new item
-                                memoryStore.items.add(extractedInfo)
-                                totalExtracted++
-                                
-                                // Enforce global message limit by removing oldest items
-                                val globalLimit = getMessageLimit(context)
-                                while (memoryStore.items.size > globalLimit) {
-                                    memoryStore.items.removeAt(0) // Remove oldest
+                                // Check for duplicates based on original message content and conversation
+                                val isDuplicate = memoryStore.items.any { item ->
+                                    item.conversationGuid == extractedInfo.conversationGuid && 
+                                    item.originalMessage == extractedInfo.originalMessage
                                 }
                                 
-                                // Update timestamp
-                                memoryStore.lastUpdated = System.currentTimeMillis()
-                                
-                                // Save to file
-                                saveMemoryStore(memoryFile, memoryStore)
+                                if (!isDuplicate) {
+                                    // Add the new item
+                                    memoryStore.items.add(extractedInfo)
+                                    totalExtracted++
+                                    
+                                    // Enforce global message limit by removing oldest items
+                                    val globalLimit = getMessageLimit(context)
+                                    while (memoryStore.items.size > globalLimit) {
+                                        memoryStore.items.removeAt(0) // Remove oldest
+                                    }
+                                    
+                                    // Update timestamp
+                                    memoryStore.lastUpdated = System.currentTimeMillis()
+                                    
+                                    // Save to file
+                                    saveMemoryStore(memoryFile, memoryStore)
+                                } else {
+                                    Log.d(TAG, "Skipping duplicate memory item in bulk processing")
+                                }
                                 
                                 Log.v(TAG, "Extracted memory: ${extractedInfo.extractedInfo}")
                             } else {

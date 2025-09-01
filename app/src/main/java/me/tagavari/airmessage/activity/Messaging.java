@@ -222,6 +222,7 @@ import me.tagavari.airmessage.helper.GeminiHelper;
 import me.tagavari.airmessage.helper.SoundHelper;
 import me.tagavari.airmessage.helper.StringHelper;
 import me.tagavari.airmessage.helper.ThemeHelper;
+import me.tagavari.airmessage.helper.TwoFACodeManager;
 import me.tagavari.airmessage.helper.ViewHelper;
 import me.tagavari.airmessage.helper.WindowHelper;
 import me.tagavari.airmessage.messaging.AMConversationAction;
@@ -339,6 +340,7 @@ public class Messaging extends AppCompatCompositeActivity {
 	private ImageButton buttonSendMessage;
 	private ImageButton buttonGemini;
 	private MaterialButton buttonAIEdit;
+	private MaterialButton button2FA;
 	private FrameLayout buttonAddContent;
 	private InsertionEditText messageInputField;
 	private LinearLayout smartRepliesContainer;
@@ -492,6 +494,7 @@ public class Messaging extends AppCompatCompositeActivity {
 		buttonSendMessage = inputBar.findViewById(R.id.button_send);
 		buttonGemini = inputBar.findViewById(R.id.button_gemini);
 		buttonAIEdit = findViewById(R.id.button_ai_edit);
+		button2FA = findViewById(R.id.button_2fa_codes);
 		buttonAddContent = inputBar.findViewById(R.id.button_addcontent);
 		messageInputField = inputBar.findViewById(R.id.messagebox);
 		smartRepliesContainer = inputBar.findViewById(R.id.smart_replies_container);
@@ -690,6 +693,7 @@ public class Messaging extends AppCompatCompositeActivity {
 		buttonSendMessage.setOnClickListener(view -> submitInput());
 		buttonGemini.setOnClickListener(view -> showGeminiOptions());
 		buttonAIEdit.setOnClickListener(view -> showAIEditPopup());
+		button2FA.setOnClickListener(view -> show2FACodesDialog());
 		buttonAddContent.setOnClickListener(view -> {
 			if(viewModel.isAttachmentsPanelOpen) {
 				closeAttachmentsPanel(true);
@@ -2290,6 +2294,60 @@ public class Messaging extends AppCompatCompositeActivity {
 
 		// Show popup centered on screen
 		popup.showAtLocation(messageInputField, Gravity.CENTER, 0, 0);
+	}
+
+	/**
+	 * Show dialog with recent 2FA codes for quick sharing
+	 */
+	private void show2FACodesDialog() {
+		TwoFACodeManager.INSTANCE.getAllCodes(this)
+			.observeOn(AndroidSchedulers.mainThread())
+			.subscribe(
+				codes -> {
+					if (codes.isEmpty()) {
+						Toast.makeText(this, "No 2FA codes found", Toast.LENGTH_SHORT).show();
+						return;
+					}
+					
+					// Create dialog content
+					StringBuilder content = new StringBuilder();
+					for (int i = 0; i < codes.size(); i++) {
+						TwoFACodeManager.TwoFACode code = codes.get(i);
+						content.append("📱 ").append(code.getService()).append("\n");
+						content.append("🔢 ").append(code.getCode()).append("\n");
+						if (i < codes.size() - 1) content.append("\n");
+					}
+					
+					// Show dialog with clickable codes
+					new MaterialAlertDialogBuilder(this)
+						.setTitle("Recent 2FA Codes")
+						.setMessage(content.toString())
+						.setPositiveButton("Send Latest", (dialog, which) -> {
+							// Send the most recent code
+							if (!codes.isEmpty()) {
+								String latestCode = codes.get(0).getCode();
+								messageInputField.setText(latestCode);
+								submitInput();
+							}
+						})
+						.setNeutralButton("Copy Latest", (dialog, which) -> {
+							// Copy the most recent code to clipboard
+							if (!codes.isEmpty()) {
+								String latestCode = codes.get(0).getCode();
+								ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+								ClipData clip = ClipData.newPlainText("2FA Code", latestCode);
+								clipboard.setPrimaryClip(clip);
+								Toast.makeText(this, "Code copied to clipboard", Toast.LENGTH_SHORT).show();
+							}
+						})
+						.setNegativeButton("Close", null)
+						.show();
+				},
+				error -> {
+					Toast.makeText(this, "Failed to load 2FA codes", Toast.LENGTH_SHORT).show();
+					Log.e("Messaging", "Failed to load 2FA codes", error);
+				}
+			);
 	}
 
 	/**

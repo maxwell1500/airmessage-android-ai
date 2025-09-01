@@ -35,7 +35,7 @@ import java.util.zip.Inflater;
 public class DatabaseManager extends SQLiteOpenHelper {
 	//If you change the database schema, you must increment the database version
 	private static final String DATABASE_NAME = "messages.db";
-	private static final int DATABASE_VERSION = 15;
+	private static final int DATABASE_VERSION = 16;
 	
 	//Creating the fetch statements
 	/* private static final String SQL_FETCH_CONVERSATIONS = "SELECT * FROM (" +
@@ -175,6 +175,15 @@ public class DatabaseManager extends SQLiteOpenHelper {
 			Contract.TapbackEntry.COLUMN_NAME_SENDER + " TEXT," +
 			Contract.TapbackEntry.COLUMN_NAME_CODE + " INTEGER NOT NULL" +
 			");";
+	private static final String SQL_CREATE_TABLE_TWOFA_CODES = "CREATE TABLE " + Contract.TwoFACodeEntry.TABLE_NAME + " (" +
+			Contract.TwoFACodeEntry._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+			Contract.TwoFACodeEntry.COLUMN_NAME_CODE + " TEXT NOT NULL," +
+			Contract.TwoFACodeEntry.COLUMN_NAME_SERVICE + " TEXT NOT NULL," +
+			Contract.TwoFACodeEntry.COLUMN_NAME_PHONE_NUMBER + " TEXT NOT NULL," +
+			Contract.TwoFACodeEntry.COLUMN_NAME_MESSAGE_TEXT + " TEXT NOT NULL," +
+			Contract.TwoFACodeEntry.COLUMN_NAME_TIMESTAMP + " INTEGER NOT NULL," +
+			Contract.TwoFACodeEntry.COLUMN_NAME_IS_USED + " INTEGER NOT NULL DEFAULT 0" +
+			");";
 	/* private static final String SQL_CREATE_TABLE_BLOCKED = "CREATE TABLE " + Contract.BlockedEntry.TABLE_NAME + " (" +
 			Contract.BlockedEntry.COLUMN_NAME_ADDRESS + " TEXT NOT NULL," +
 			Contract.BlockedEntry.COLUMN_NAME_BLOCKCOUNT + " INTEGER NOT NULL DEFAULT 0" +
@@ -198,6 +207,7 @@ public class DatabaseManager extends SQLiteOpenHelper {
 		database.execSQL(SQL_CREATE_TABLE_MESSAGEPREVIEW);
 		database.execSQL(SQL_CREATE_TABLE_STICKER);
 		database.execSQL(SQL_CREATE_TABLE_TAPBACK);
+		database.execSQL(SQL_CREATE_TABLE_TWOFA_CODES);
 		//database.execSQL(SQL_CREATE_TABLE_BLOCKED);
 	}
 	
@@ -555,6 +565,9 @@ public class DatabaseManager extends SQLiteOpenHelper {
 						"sort INTEGER, " +
 						"should_auto_download INTEGER NOT NULL DEFAULT 0" +
 						");", false);
+			case 15:
+				//Adding the 2FA codes table for storing verification codes
+				database.execSQL(SQL_CREATE_TABLE_TWOFA_CODES);
 		}
 	}
 	
@@ -674,6 +687,16 @@ public class DatabaseManager extends SQLiteOpenHelper {
 			static final String COLUMN_NAME_MESSAGEINDEX = "message_index";
 			static final String COLUMN_NAME_SENDER = "sender";
 			static final String COLUMN_NAME_CODE = "code";
+		}
+		
+		static class TwoFACodeEntry implements BaseColumns {
+			static final String TABLE_NAME = "twofa_codes";
+			static final String COLUMN_NAME_CODE = "code";
+			static final String COLUMN_NAME_SERVICE = "service";
+			static final String COLUMN_NAME_PHONE_NUMBER = "phone_number";
+			static final String COLUMN_NAME_MESSAGE_TEXT = "message_text";
+			static final String COLUMN_NAME_TIMESTAMP = "timestamp";
+			static final String COLUMN_NAME_IS_USED = "is_used";
 		}
 		
 		/* static class BlockedEntry implements BaseColumns {

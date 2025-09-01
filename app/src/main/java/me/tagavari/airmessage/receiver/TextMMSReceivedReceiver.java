@@ -6,6 +6,8 @@ import android.net.Uri;
 import android.provider.Telephony;
 import com.klinker.android.send_message.MmsReceivedReceiver;
 import me.tagavari.airmessage.helper.MMSSMSHelper;
+import me.tagavari.airmessage.helper.TwoFACodeManager;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import me.tagavari.airmessage.messaging.MessageInfo;
 
 import java.util.Arrays;
@@ -36,7 +38,32 @@ public class TextMMSReceivedReceiver extends MmsReceivedReceiver {
 		
 		//Saving the message
 		if(messageInfo != null) {
-			MMSSMSHelper.updateTextConversationMessage(context, threadID, messageInfo).subscribe();
+			// Check if this should be handled as a 2FA message
+			String sender = messageInfo.getSender();
+			String messageText = messageInfo.getMessageText();
+			boolean shouldHandle2FA = sender != null && sender.length() <= 7 && 
+				messageText != null && TwoFACodeManager.INSTANCE.shouldProcessAs2FA(messageText);
+			
+			if (shouldHandle2FA) {
+				// Process as 2FA message
+				TwoFACodeManager.INSTANCE.processMessage(context, messageInfo)
+					.subscribeOn(Schedulers.io())
+					.subscribe(
+						wasProcessed -> {
+							if (!wasProcessed) {
+								// If not processed as 2FA, fall back to regular processing
+								MMSSMSHelper.updateTextConversationMessage(context, threadID, messageInfo).subscribe();
+							}
+						},
+						error -> {
+							// If 2FA processing fails, fall back to regular message processing
+							MMSSMSHelper.updateTextConversationMessage(context, threadID, messageInfo).subscribe();
+						}
+					);
+			} else {
+				// Process as regular message
+				MMSSMSHelper.updateTextConversationMessage(context, threadID, messageInfo).subscribe();
+			}
 		}
 	}
 	

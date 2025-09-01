@@ -37,6 +37,7 @@ import me.tagavari.airmessage.receiver.TextMMSSentReceiver
 import me.tagavari.airmessage.receiver.TextSMSDeliveredReceiver
 import me.tagavari.airmessage.receiver.TextSMSSentReceiver
 import me.tagavari.airmessage.redux.ReduxEmitterNetwork
+import me.tagavari.airmessage.helper.TwoFACodeManager
 import me.tagavari.airmessage.redux.ReduxEventMessaging
 import me.tagavari.airmessage.redux.ReduxEventMessaging.ConversationUpdate
 import me.tagavari.airmessage.util.ReplaceInsertResult
@@ -170,7 +171,7 @@ object MMSSMSHelper {
 		return Single.fromCallable {
 			getOrCreateTextConversation(context, participants) ?: throw RuntimeException("Failed to create conversation")
 		}.subscribeOn(Schedulers.single()).flatMap { (conversation, isNew) ->
-			updateTextConversationMessage(conversation, isNew, newMessage).map { message ->
+			updateTextConversationMessage(context, conversation, isNew, newMessage).map { message ->
 				Pair(conversation, message)
 			}
 		}
@@ -188,7 +189,7 @@ object MMSSMSHelper {
 		return Single.fromCallable {
 			getOrCreateTextConversation(context, threadID) ?: throw RuntimeException("Failed to create conversation")
 		}.subscribeOn(Schedulers.single()).flatMap { (conversation, isNew) ->
-			updateTextConversationMessage(conversation, isNew, newMessage).map { message ->
+			updateTextConversationMessage(context, conversation, isNew, newMessage).map { message ->
 				Pair(conversation, message)
 			}
 		}
@@ -196,12 +197,13 @@ object MMSSMSHelper {
 	
 	/**
 	 * Handles the latter half of a conversation-message insertion, writing the message to disk and sending the proper emitter update
+	 * @param context The context to use
 	 * @param conversationInfo The conversation of the message
 	 * @param conversationIsNew Whether the conversation is newly added
 	 * @param newMessage The conversation's message
 	 * @return A single for a pair of the new conversation and message
 	 */
-	private fun updateTextConversationMessage(conversationInfo: ConversationInfo, conversationIsNew: Boolean, newMessage: MessageInfo): Single<MessageInfo> {
+	private fun updateTextConversationMessage(context: Context, conversationInfo: ConversationInfo, conversationIsNew: Boolean, newMessage: MessageInfo): Single<MessageInfo> {
 		return Single.fromCallable {
 			//Writing the message to the database
 			val messageID = DatabaseManager.getInstance().addConversationItem(conversationInfo.localID, newMessage, conversationInfo.serviceHandler == ServiceHandler.appleBridge)
@@ -212,6 +214,16 @@ object MMSSMSHelper {
 			localMessage.localID = messageID
 			localMessage
 		}.subscribeOn(Schedulers.single()).observeOn(AndroidSchedulers.mainThread()).flatMap { messageInfo ->
+			// Process message for 2FA codes (non-blocking)
+			if (!messageInfo.isOutgoing) {
+				TwoFACodeManager.processMessage(context, messageInfo)
+					.subscribeOn(Schedulers.io())
+					.subscribe(
+						{ found -> if (found) android.util.Log.i("MMSSMSHelper", "Found 2FA code in message") },
+						{ error -> android.util.Log.w("MMSSMSHelper", "Failed to process 2FA code", error) }
+					)
+			}
+			
 			//Getting the values
 			if(conversationIsNew) {
 				//If we just created a new conversation, emit a conversation update
