@@ -30,6 +30,7 @@ abstract class GeminiHelper protected constructor() {
     
     companion object {
         private const val MAX_CONVERSATION_CONTEXT = 10
+        private const val MAX_SMART_REPLY_CONTEXT = 5  // Reduced context for smart replies
         private const val MAX_SMART_REPLIES = 3
         
         @Volatile
@@ -134,16 +135,11 @@ abstract class GeminiHelper protected constructor() {
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
             }
             
-            val conversationContext = buildConversationContext(conversationMessages, conversationInfo)
+            val conversationContext = buildSmartReplyContext(conversationMessages, conversationInfo)
             
-            // Get contextual memories for enhanced smart replies
-            val contextualMemories = try {
-                ConversationMemoryManager.getContextualMemories(context, conversationInfo)
-                    .blockingGet()
-            } catch (e: Exception) {
-                Log.w("GeminiHelper", "Failed to retrieve contextual memories", e)
-                emptyList<ConversationMemoryManager.MemoryItem>()
-            }
+            // Disable contextual memories for smart replies to avoid overly strong context influence
+            // Smart replies should focus on the current conversation only
+            val contextualMemories = emptyList<ConversationMemoryManager.MemoryItem>()
             
             val prompt = buildSmartReplyPrompt(conversationContext, conversationInfo.isGroupChat, contextualMemories)
             
@@ -642,32 +638,50 @@ abstract class GeminiHelper protected constructor() {
         return context.toString()
     }
     
+    /**
+     * Build conversation context specifically for smart replies with reduced message history
+     * to avoid overly strong context influence
+     */
+    private fun buildSmartReplyContext(
+        messages: List<MessageInfo>,
+        conversationInfo: ConversationInfo
+    ): String {
+        val recentMessages = messages.takeLast(MAX_SMART_REPLY_CONTEXT)
+        val context = StringBuilder()
+        
+        context.append("Current conversation (respond to the most recent message):\n")
+        context.append("Type: ${if (conversationInfo.isGroupChat) "Group Chat" else "Direct Message"}\n")
+        conversationInfo.title?.let { 
+            context.append("Title: $it\n")
+        }
+        context.append("\nRecent Messages:\n")
+        
+        recentMessages.forEach { message ->
+            val sender = message.sender ?: "Unknown"
+            val text = message.messageText ?: ""
+            context.append("$sender: $text\n")
+        }
+        
+        return context.toString()
+    }
+    
     private fun buildSmartReplyPrompt(context: String, isGroupChat: Boolean, contextualMemories: List<ConversationMemoryManager.MemoryItem> = emptyList()): String {
-        val memoryContext = if (contextualMemories.isNotEmpty()) {
-            val memoryInfo = contextualMemories.take(5).joinToString("\n") { memory ->
-                "- ${memory.extractedInfo} (from ${memory.conversationTitle ?: "another conversation"})"
-            }
-            "\nBackground context (for understanding only - do NOT respond to this information):\n$memoryInfo\n"
-        } else ""
+        // Note: contextualMemories parameter kept for compatibility but not used in smart replies
+        // to avoid overly strong context influence from other conversations
         
         return """
-            Generate ${MAX_SMART_REPLIES} reply suggestions for the most recent message in this conversation.
+            Generate ${MAX_SMART_REPLIES} short, natural reply suggestions for the most recent message shown below.
             
             Requirements:
-            - Contextually relevant to the CURRENT conversation only
-            - Natural and conversational
-            - Appropriate for a ${if (isGroupChat) "group chat" else "direct message"} setting
-            - Brief (1-2 sentences max)
-            - Diverse in tone and content
-            - Respond ONLY to the most recent message in the current conversation
+            - Focus ONLY on the immediate conversation shown
+            - Natural and conversational tone
+            - Brief responses (5-15 words max)
+            - Diverse in style (casual, question, acknowledgment, etc.)
+            - Appropriate for a ${if (isGroupChat) "group chat" else "direct message"}
             
-            IMPORTANT: If background context is provided below, use it ONLY for understanding the person's preferences or interests. 
-            Do NOT respond to or reference the background information directly. Focus your replies on the current conversation topic.
-            
-            Current conversation (respond to the most recent message):
             $context
-            $memoryContext
-            OUTPUT FORMAT: Provide ONLY the ${MAX_SMART_REPLIES} reply options, each on a separate line, with no explanations, numbering, formatting, or meta-commentary. Start immediately with the first reply:
+            
+            Provide ${MAX_SMART_REPLIES} reply options, each on a separate line. No formatting or explanations:
         """.trimIndent()
     }
     
