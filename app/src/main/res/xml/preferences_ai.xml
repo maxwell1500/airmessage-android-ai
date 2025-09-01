@@ -56,6 +56,15 @@
 			android:dependency="@string/preference_ai_enabled_key"
 			android:inputType="text"
 			app:iconSpaceReserved="false" />
+		<androidx.preference.ListPreference
+			android:key="@string/preference_ollama_turbo_model_key"
+			android:title="@string/preference_ollama_turbo_model_title"
+			android:summary="@string/preference_ollama_turbo_model_description"
+			android:entries="@array/ollama_turbo_model_entries"
+			android:entryValues="@array/ollama_turbo_model_values"
+			android:defaultValue="gpt-oss:20b"
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
 	</androidx.preference.PreferenceCategory>
 
 	<!-- Ollama Local Configuration -->

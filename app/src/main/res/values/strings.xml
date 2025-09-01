@@ -635,6 +635,9 @@
 	<string name="preference_ollama_turbo_apikey_key">ollama_turbo_apikey</string>
 	<string name="preference_ollama_turbo_apikey_title">Ollama API Key</string>
 	<string name="preference_ollama_turbo_apikey_description">Enter your Ollama API key for turbo models</string>
+	<string name="preference_ollama_turbo_model_key">ollama_turbo_model</string>
+	<string name="preference_ollama_turbo_model_title">Turbo Model</string>
+	<string name="preference_ollama_turbo_model_description">Select which Ollama Turbo model to use</string>
 	
 	<!-- Ollama Local Configuration -->
 	<string name="preferencegroup_ollama_key">ollama_config</string>
@@ -661,5 +664,15 @@
 	</string-array>
 	<string-array name="preference_ollama_model_values">
 		<item></item>
+	</string-array>
+	
+	<!-- Ollama Turbo model arrays -->
+	<string-array name="ollama_turbo_model_entries">
+		<item>GPT-OSS 20B (Recommended)</item>
+		<item>GPT-OSS 120B (More Powerful)</item>
+	</string-array>
+	<string-array name="ollama_turbo_model_values">
+		<item>gpt-oss:20b</item>
+		<item>gpt-oss:120b</item>
 	</string-array>
 </resources>

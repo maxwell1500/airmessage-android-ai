@@ -1702,6 +1702,10 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 	public static String getPreferenceOllamaTurboApiKey(Context context) {
 		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_ollama_turbo_apikey_key), "");
 	}
+	
+	public static String getPreferenceOllamaTurboModel(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_ollama_turbo_model_key), "gpt-oss:20b");
+	}
 
 	public static String getPreferenceOllamaHostname(Context context) {
 		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_ollama_hostname_key), "");

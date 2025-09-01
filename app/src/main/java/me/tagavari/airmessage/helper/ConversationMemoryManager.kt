@@ -418,18 +418,19 @@ Be generous in extracting information - when in doubt, include it if it might be
      */
     private fun callOllamaTurboAI(context: Context, prompt: String): String? {
         val apiKey = me.tagavari.airmessage.activity.Preferences.getPreferenceOllamaTurboApiKey(context)
+        val model = me.tagavari.airmessage.activity.Preferences.getPreferenceOllamaTurboModel(context)
         
         Log.d(TAG, "Ollama Turbo API key configured: ${if (apiKey.isEmpty()) "NO" else "YES (${apiKey.length} chars)"}")
+        Log.d(TAG, "Using Ollama Turbo model: $model")
         
         if (apiKey.isEmpty()) {
             Log.w(TAG, "Ollama Turbo API key not configured - cannot make AI call")
             return null
         }
         
-        // Ollama Turbo API call structure - this will need to be updated based on their actual API
-        // For now, I'll implement a placeholder that follows typical API patterns
+        // Ollama Turbo API structure based on official documentation
         val json = JSONObject().apply {
-            put("model", "turbo") // or whatever the turbo model name is
+            put("model", model) // Use selected model (gpt-oss:20b or gpt-oss:120b)
             put("prompt", prompt)
             put("stream", false)
             put("options", JSONObject().apply {
@@ -440,9 +441,9 @@ Be generous in extracting information - when in doubt, include it if it might be
         
         val requestBody = json.toString().toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
-            .url("https://api.ollama.ai/v1/generate") // placeholder URL - update with actual Ollama Turbo API endpoint
+            .url("https://ollama.com/api/generate") // Official Ollama Turbo API endpoint
             .post(requestBody)
-            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Authorization", apiKey) // Use API key directly (not Bearer format based on docs)
             .build()
         
         return try {
