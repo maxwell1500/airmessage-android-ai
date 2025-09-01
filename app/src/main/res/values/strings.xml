@@ -593,9 +593,9 @@
 	<string name="preference_ai_enabled_title">Enable AI Features</string>
 	<string name="preference_ai_enabled_description">Enable Gemini AI-powered smart replies, message enhancement, and conversation summaries</string>
 	<string name="preference_ai_auth_key">ai_authentication</string>
-	<string name="preference_ai_auth_title">Google Account Status</string>
-	<string name="preference_ai_auth_summary_signedout">Sign in with Google to enable AI features</string>
-	<string name="preference_ai_auth_summary_signedin">Signed in as %s</string>
+	<string name="preference_ai_auth_title">API Key Configuration</string>
+	<string name="preference_ai_auth_summary_signedout">Add Google AI API key to enable Gemini features</string>
+	<string name="preference_ai_auth_summary_signedin">API key configured and ready</string>
 	<string name="preference_ai_auth_summary_setup_needed">AI setup required</string>
 	<string name="preference_ai_smart_replies_key">ai_smart_replies</string>
 	<string name="preference_ai_smart_replies_title">Enhanced Smart Replies</string>

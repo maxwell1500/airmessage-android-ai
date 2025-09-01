@@ -715,8 +715,8 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 						launchGoogleSignIn(preference);
 					} else {
 						new MaterialAlertDialogBuilder(getActivity())
-							.setTitle(R.string.preference_ai_auth_title)
-							.setMessage("Google Services are not available on this device. AI features require Google Sign-In.")
+							.setTitle("Setup API Key")
+							.setMessage("To use AI features, add your Google AI API key to secrets.properties file.\n\nGet a free key at: https://makersuite.google.com/app/apikey")
 							.setPositiveButton(android.R.string.ok, null)
 							.show();
 					}
@@ -725,7 +725,7 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 				// Error checking authentication status
 				new MaterialAlertDialogBuilder(getActivity())
 					.setTitle("AI Features")
-					.setMessage("AI features require additional setup. Please check your Google Services configuration.")
+					.setMessage("AI features require additional setup. Please add your Google AI API key to secrets.properties file.")
 					.setPositiveButton(android.R.string.ok, null)
 					.show();
 			}
@@ -741,10 +741,10 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 				try {
 					me.tagavari.airmessage.helper.GeminiHelper geminiHelper = me.tagavari.airmessage.helper.GeminiHelper.getInstance();
 					if (!geminiHelper.isUserAuthenticated()) {
-						// Show message that authentication is required
+						// Show message about API key configuration
 						new MaterialAlertDialogBuilder(getActivity())
-							.setTitle("Authentication Required")
-							.setMessage("Please sign in with your Google account first to enable AI features.")
+							.setTitle("API Key Required")
+							.setMessage("To use Gemini AI features, please add your Google AI API key to secrets.properties.\n\nGet a free API key at: https://makersuite.google.com/app/apikey")
 							.setPositiveButton(android.R.string.ok, null)
 							.show();
 						return false; // Don't enable the preference
@@ -1044,20 +1044,24 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 		}
 
 		private void launchGoogleSignIn(Preference preference) {
-			// For now, show a helpful message directing users to the proper sign-in flow
-			// TODO: Implement proper Google Sign-In integration
+			// Show API key setup instructions instead of sign-in
 			new MaterialAlertDialogBuilder(getActivity())
-				.setTitle("Sign In for AI Features")
-				.setMessage("To use AI features, you need to sign in with your Google account.\n\n" +
-					"Please sign in using the AirMessage Connect setup flow:\n" +
-					"1. Go to Settings > Account\n" +
-					"2. Set up AirMessage Connect\n" +
-					"3. Sign in with your Google account\n\n" +
-					"Once signed in, return here to enable AI features.")
-				.setPositiveButton("Go to Account Settings", (dialog, which) -> {
-					// TODO: Navigate to account settings
+				.setTitle("Setup Google Gemini API")
+				.setMessage("To use Gemini AI features:\n\n" +
+					"1. Get a free API key at:\n" +
+					"   https://makersuite.google.com/app/apikey\n\n" +
+					"2. Add it to your secrets.properties file:\n" +
+					"   GEMINI_API_KEY=your_key_here\n\n" +
+					"3. Rebuild the app\n\n" +
+					"The free tier includes 15 requests/min and 1,500 requests/day.")
+				.setPositiveButton("Got it", null)
+				.setNegativeButton("Use Ollama instead", (dialog, which) -> {
+					// Switch to Ollama provider
+					ListPreference aiProviderPref = findPreference(getString(R.string.preference_features_aiprovider_key));
+					if (aiProviderPref != null) {
+						aiProviderPref.setValue("ollama");
+					}
 				})
-				.setNegativeButton(android.R.string.cancel, null)
 				.show();
 		}
 
@@ -1652,6 +1656,10 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 
 	public static String getPreferenceAIProvider(Context context) {
 		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_features_aiprovider_key), "ollama");
+	}
+	
+	public static String getPreferenceGeminiApiKey(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_features_gemini_apikey_key), "");
 	}
 
 	public static String getPreferenceOllamaHostname(Context context) {

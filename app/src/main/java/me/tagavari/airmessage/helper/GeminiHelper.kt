@@ -126,8 +126,9 @@ abstract class GeminiHelper protected constructor() {
                     }
                 }
                 "gemini" -> {
-                    if (!isUserAuthenticated()) {
-                        throw IllegalStateException("Please sign in with your Google account to use Gemini AI")
+                    val apiKey = getGeminiApiKey(context)
+                    if (apiKey.isEmpty()) {
+                        throw IllegalStateException("Gemini API key not configured. Please set your Google AI API key in Settings > AI Provider")
                     }
                 }
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
@@ -159,7 +160,7 @@ abstract class GeminiHelper protected constructor() {
         
         return when (aiProvider) {
             "ollama" -> callOllamaAPI(context, prompt)
-            "gemini" -> callGeminiAPI(prompt)
+            "gemini" -> callGeminiAPI(context, prompt)
             else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
         }
     }
@@ -206,12 +207,65 @@ abstract class GeminiHelper protected constructor() {
     }
     
     /**
-     * Make API call to Gemini (placeholder for flavor-specific implementation)
+     * Make API call to Google Gemini API using REST API
      */
-    private fun callGeminiAPI(prompt: String): String {
-        // This will be implemented in flavor-specific classes
-        // For now, throw an error to indicate it needs implementation
-        throw IllegalStateException("Gemini API not implemented - please use flavor-specific implementation")
+    private fun callGeminiAPI(context: Context, prompt: String): String {
+        val apiKey = getGeminiApiKey(context)
+        if (apiKey.isEmpty()) {
+            throw IllegalStateException("Gemini API key not configured. Please set your API key in Settings > AI Provider")
+        }
+        
+        val json = JSONObject().apply {
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("text", prompt)
+                        })
+                    })
+                })
+            })
+            put("generationConfig", JSONObject().apply {
+                put("temperature", 0.7)
+                put("topK", 40)
+                put("topP", 0.95)
+                put("maxOutputTokens", 1024)
+            })
+        }
+        
+        val requestBody = json.toString().toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
+            .post(requestBody)
+            .build()
+            
+        ollamaClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("Gemini API call failed: ${response.code} ${response.message}")
+            }
+            
+            val responseBody = response.body?.string() ?: ""
+            val responseJson = JSONObject(responseBody)
+            
+            return try {
+                responseJson
+                    .getJSONArray("candidates")
+                    .getJSONObject(0)
+                    .getJSONObject("content")
+                    .getJSONArray("parts")
+                    .getJSONObject(0)
+                    .getString("text")
+            } catch (e: Exception) {
+                throw IOException("Failed to parse Gemini API response: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Get Gemini API key from user preferences
+     */
+    private fun getGeminiApiKey(context: Context): String {
+        return me.tagavari.airmessage.activity.Preferences.getPreferenceGeminiApiKey(context)
     }
     
     /**
@@ -248,8 +302,9 @@ abstract class GeminiHelper protected constructor() {
                     }
                 }
                 "gemini" -> {
-                    if (!isUserAuthenticated()) {
-                        throw IllegalStateException("Please sign in with your Google account to use Gemini AI")
+                    val apiKey = getGeminiApiKey(context)
+                    if (apiKey.isEmpty()) {
+                        throw IllegalStateException("Gemini API key not configured. Please set your Google AI API key in Settings > AI Provider")
                     }
                 }
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
@@ -315,8 +370,9 @@ abstract class GeminiHelper protected constructor() {
                     }
                 }
                 "gemini" -> {
-                    if (!isUserAuthenticated()) {
-                        throw IllegalStateException("Please sign in with your Google account to use Gemini AI")
+                    val apiKey = getGeminiApiKey(context)
+                    if (apiKey.isEmpty()) {
+                        throw IllegalStateException("Gemini API key not configured. Please set your Google AI API key in Settings > AI Provider")
                     }
                 }
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
@@ -379,8 +435,9 @@ abstract class GeminiHelper protected constructor() {
                     }
                 }
                 "gemini" -> {
-                    if (!isUserAuthenticated()) {
-                        throw IllegalStateException("Please sign in with your Google account to use Gemini AI")
+                    val apiKey = getGeminiApiKey(context)
+                    if (apiKey.isEmpty()) {
+                        throw IllegalStateException("Gemini API key not configured. Please set your Google AI API key in Settings > AI Provider")
                     }
                 }
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
@@ -426,8 +483,9 @@ abstract class GeminiHelper protected constructor() {
                     }
                 }
                 "gemini" -> {
-                    if (!isUserAuthenticated()) {
-                        throw IllegalStateException("Please sign in with your Google account to use Gemini AI")
+                    val apiKey = getGeminiApiKey(context)
+                    if (apiKey.isEmpty()) {
+                        throw IllegalStateException("Gemini API key not configured. Please set your Google AI API key in Settings > AI Provider")
                     }
                 }
                 else -> throw IllegalStateException("Unknown AI provider: $aiProvider")
@@ -490,13 +548,14 @@ abstract class GeminiHelper protected constructor() {
                     }
                 }
                 "gemini" -> {
-                    if (!isUserAuthenticated()) {
+                    val apiKey = getGeminiApiKey(context)
+                    if (apiKey.isEmpty()) {
                         return@rxSingle ContentAnalysis(
                             isSpam = false,
                             hasInappropriateContent = false,
                             containsSensitiveInfo = false,
                             riskLevel = RiskLevel.LOW,
-                            warnings = listOf("Please sign in with Google account for content analysis")
+                            warnings = listOf("Gemini API key not configured. Please set your API key in Settings > AI Provider")
                         )
                     }
                 }
@@ -542,7 +601,8 @@ abstract class GeminiHelper protected constructor() {
                     }
                 }
                 "gemini" -> {
-                    if (!isUserAuthenticated()) {
+                    val apiKey = getGeminiApiKey(context)
+                    if (apiKey.isEmpty()) {
                         return@rxSingle emptyList<ActionItem>()
                     }
                 }
