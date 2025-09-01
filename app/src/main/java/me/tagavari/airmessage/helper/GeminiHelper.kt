@@ -647,23 +647,27 @@ abstract class GeminiHelper protected constructor() {
             val memoryInfo = contextualMemories.take(5).joinToString("\n") { memory ->
                 "- ${memory.extractedInfo} (from ${memory.conversationTitle ?: "another conversation"})"
             }
-            "\nAdditional context from other conversations:\n$memoryInfo\n"
+            "\nBackground context (for understanding only - do NOT respond to this information):\n$memoryInfo\n"
         } else ""
         
         return """
-            Based on the following conversation, generate ${MAX_SMART_REPLIES} appropriate reply suggestions.
-            The replies should be:
-            - Contextually relevant and informed by all available information
+            Generate ${MAX_SMART_REPLIES} reply suggestions for the most recent message in this conversation.
+            
+            Requirements:
+            - Contextually relevant to the CURRENT conversation only
             - Natural and conversational
             - Appropriate for a ${if (isGroupChat) "group chat" else "direct message"} setting
             - Brief (1-2 sentences max)
             - Diverse in tone and content
-            - Reference information from other conversations when relevant and helpful
+            - Respond ONLY to the most recent message in the current conversation
             
-            Current conversation:
+            IMPORTANT: If background context is provided below, use it ONLY for understanding the person's preferences or interests. 
+            Do NOT respond to or reference the background information directly. Focus your replies on the current conversation topic.
+            
+            Current conversation (respond to the most recent message):
             $context
             $memoryContext
-            Provide exactly ${MAX_SMART_REPLIES} reply options, each on a new line, without numbering or formatting:
+            OUTPUT FORMAT: Provide ONLY the ${MAX_SMART_REPLIES} reply options, each on a separate line, with no explanations, numbering, formatting, or meta-commentary. Start immediately with the first reply:
         """.trimIndent()
     }
     
@@ -846,7 +850,24 @@ abstract class GeminiHelper protected constructor() {
         return response
             .split("\n")
             .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("Here are") && !it.startsWith("Reply") }
+            .map { reply ->
+                // Remove numbered formatting (1. 2. 3. etc.)
+                reply.replaceFirst(Regex("^\\d+\\.\\s*"), "")
+            }
+            .filter { reply ->
+                reply.isNotEmpty() && 
+                !reply.startsWith("Here are") && 
+                !reply.startsWith("Reply") && 
+                !(reply.startsWith("Okay,") && reply.contains("reply")) &&  // Only block "Okay, here are replies" style
+                !(reply.startsWith("Sure,") && reply.contains("reply")) &&  // Only block "Sure, here are replies" style
+                !reply.startsWith("Based on") &&
+                !reply.startsWith("Following") &&
+                !reply.startsWith("The replies") &&
+                !reply.contains("reply options") &&
+                !reply.contains("guidelines") &&
+                !reply.contains("suggestions") &&
+                reply.length > 2 // Avoid very short non-replies
+            }
             .take(MAX_SMART_REPLIES)
     }
     
