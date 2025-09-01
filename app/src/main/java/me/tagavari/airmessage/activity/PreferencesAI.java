@@ -51,7 +51,8 @@ public class PreferencesAI extends AppCompatActivity implements PreferenceFragme
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_preferences);
 		
-		// Set up the toolbar
+		// Set up the toolbar - first set it as the support action bar
+		setSupportActionBar(findViewById(R.id.toolbar));
 		if (getSupportActionBar() != null) {
 			getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 			getSupportActionBar().setTitle("AI Settings");
