@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+
+	<!-- AI Provider Selection -->
+	<androidx.preference.PreferenceCategory
+		android:key="@string/preferencegroup_ai_provider_key"
+		android:title="@string/preferencegroup_ai_provider_title"
+		app:iconSpaceReserved="false">
+		<androidx.preference.SwitchPreference
+			android:key="@string/preference_ai_enabled_key"
+			android:title="@string/preference_ai_enabled_title"
+			android:summary="@string/preference_ai_enabled_description"
+			android:defaultValue="false"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.ListPreference
+			android:key="@string/preference_features_aiprovider_key"
+			android:title="@string/preference_features_aiprovider_title"
+			android:summary="@string/preference_features_aiprovider_description"
+			android:entries="@array/preference_features_aiprovider_entries"
+			android:entryValues="@array/preference_features_aiprovider_values"
+			android:defaultValue="gemini"
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
+	</androidx.preference.PreferenceCategory>
+
+	<!-- Gemini Configuration -->
+	<androidx.preference.PreferenceCategory
+		android:key="@string/preferencegroup_gemini_key"
+		android:title="@string/preferencegroup_gemini_title"
+		app:iconSpaceReserved="false">
+		<androidx.preference.EditTextPreference
+			android:key="@string/preference_features_gemini_apikey_key"
+			android:title="@string/preference_features_gemini_apikey_title"
+			android:summary="@string/preference_features_gemini_apikey_description"
+			android:dependency="@string/preference_ai_enabled_key"
+			android:inputType="text"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.Preference
+			android:key="@string/preference_ai_auth_key"
+			android:title="@string/preference_ai_auth_title"
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
+	</androidx.preference.PreferenceCategory>
+
+	<!-- Ollama Turbo Configuration -->
+	<androidx.preference.PreferenceCategory
+		android:key="@string/preferencegroup_ollama_turbo_key"
+		android:title="@string/preferencegroup_ollama_turbo_title"
+		app:iconSpaceReserved="false">
+		<androidx.preference.EditTextPreference
+			android:key="@string/preference_ollama_turbo_apikey_key"
+			android:title="@string/preference_ollama_turbo_apikey_title"
+			android:summary="@string/preference_ollama_turbo_apikey_description"
+			android:dependency="@string/preference_ai_enabled_key"
+			android:inputType="text"
+			app:iconSpaceReserved="false" />
+	</androidx.preference.PreferenceCategory>
+
+	<!-- Ollama Local Configuration -->
+	<androidx.preference.PreferenceCategory
+		android:key="@string/preferencegroup_ollama_key"
+		android:title="@string/preferencegroup_ollama_title"
+		app:iconSpaceReserved="false">
+		<androidx.preference.EditTextPreference
+			android:key="@string/preference_ollama_hostname_key"
+			android:title="@string/preference_ollama_hostname_title"
+			android:summary="@string/preference_ollama_hostname_summary"
+			android:defaultValue=""
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.EditTextPreference
+			android:key="@string/preference_ollama_port_key"
+			android:title="@string/preference_ollama_port_title"
+			android:summary="@string/preference_ollama_port_summary"
+			android:defaultValue="11434"
+			android:inputType="number"
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.ListPreference
+			android:key="@string/preference_ollama_model_key"
+			android:title="@string/preference_ollama_model_title"
+			android:summary="@string/preference_ollama_model_summary"
+			android:entries="@array/preference_ollama_model_entries"
+			android:entryValues="@array/preference_ollama_model_values"
+			android:defaultValue=""
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.Preference
+			android:key="@string/preference_ollama_scan_models_key"
+			android:title="@string/preference_ollama_scan_models_title"
+			android:summary="@string/preference_ollama_scan_models_summary"
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.SwitchPreference
+			android:key="@string/preference_ollama_keepalive_key"
+			android:title="@string/preference_ollama_keepalive_title"
+			android:summary="@string/preference_ollama_keepalive_description"
+			android:defaultValue="true"
+			android:dependency="@string/preference_ai_enabled_key"
+			app:iconSpaceReserved="false" />
+	</androidx.preference.PreferenceCategory>
+
+	<!-- AI Features -->
+	<androidx.preference.PreferenceCategory
+		android:key="@string/preferencegroup_ai_features_key"
+		android:title="@string/preferencegroup_ai_features_title"
+		app:iconSpaceReserved="false">
+		<androidx.preference.SwitchPreference
+			android:key="@string/preference_ai_smart_replies_key"
+			android:title="@string/preference_ai_smart_replies_title"
+			android:summary="@string/preference_ai_smart_replies_description"
+			android:dependency="@string/preference_ai_enabled_key"
+			android:defaultValue="true"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.SwitchPreference
+			android:key="@string/preference_ai_message_enhancement_key"
+			android:title="@string/preference_ai_message_enhancement_title"
+			android:summary="@string/preference_ai_message_enhancement_description"
+			android:dependency="@string/preference_ai_enabled_key"
+			android:defaultValue="true"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.SwitchPreference
+			android:key="@string/preference_ai_summaries_key"
+			android:title="@string/preference_ai_summaries_title"
+			android:summary="@string/preference_ai_summaries_description"
+			android:dependency="@string/preference_ai_enabled_key"
+			android:defaultValue="true"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.SwitchPreference
+			android:key="@string/preference_ai_content_analysis_key"
+			android:title="@string/preference_ai_content_analysis_title"
+			android:summary="@string/preference_ai_content_analysis_description"
+			android:dependency="@string/preference_ai_enabled_key"
+			android:defaultValue="false"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.SwitchPreference
+			android:key="@string/preference_ai_conversation_memory_key"
+			android:title="@string/preference_ai_conversation_memory_title"
+			android:summary="@string/preference_ai_conversation_memory_description"
+			android:dependency="@string/preference_ai_enabled_key"
+			android:defaultValue="true"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.SeekBarPreference
+			android:key="conversation_memory_message_limit"
+			android:title="@string/preference_ai_memory_limit_title"
+			android:summary="@string/preference_ai_memory_limit_description"
+			android:dependency="@string/preference_ai_conversation_memory_key"
+			android:defaultValue="100"
+			android:min="10"
+			android:max="1000"
+			app:showSeekBarValue="true"
+			app:iconSpaceReserved="false" />
+		<androidx.preference.Preference
+			android:key="@string/preference_ai_memory_manage_key"
+			android:title="@string/preference_ai_memory_manage_title"
+			android:summary="@string/preference_ai_memory_manage_description"
+			android:dependency="@string/preference_ai_conversation_memory_key"
+			app:iconSpaceReserved="false" />
+	</androidx.preference.PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

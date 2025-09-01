@@ -591,7 +591,10 @@
 	<string name="preferencegroup_ai_title">AI Features</string>
 	<string name="preference_ai_enabled_key">ai_enabled</string>
 	<string name="preference_ai_enabled_title">Enable AI Features</string>
-	<string name="preference_ai_enabled_description">Enable Gemini AI-powered smart replies, message enhancement, and conversation summaries</string>
+	<string name="preference_ai_enabled_description">Enable AI-powered smart replies, message enhancement, and conversation summaries</string>
+	<string name="preference_ai_settings_key">ai_settings</string>
+	<string name="preference_ai_settings_title">AI Settings</string>
+	<string name="preference_ai_settings_description">Configure AI provider, features, and models</string>
 	<string name="preference_ai_auth_key">ai_authentication</string>
 	<string name="preference_ai_auth_title">API Key Configuration</string>
 	<string name="preference_ai_auth_summary_signedout">Add Google AI API key to enable Gemini features</string>
@@ -613,14 +616,29 @@
 	<string name="preference_ai_conversation_memory_title">Contextual Memory</string>
 	<string name="preference_ai_conversation_memory_description">Store key information across conversations for smarter replies</string>
 	<string name="preference_ai_memory_limit_title">Memory Size</string>
-	<string name="preference_ai_memory_limit_description">Number of messages to keep in contextual memory (10-200)</string>
+	<string name="preference_ai_memory_limit_description">Number of messages to keep in contextual memory (10-1000). Values over 500 may take longer to process.</string>
 	<string name="preference_ai_memory_manage_key">ai_memory_manage</string>
 	<string name="preference_ai_memory_manage_title">Manage Memory</string>
 	<string name="preference_ai_memory_manage_description">View and clear stored contextual information</string>
 	
-	<!-- Ollama Configuration -->
+	<!-- AI Settings Categories -->
+	<string name="preferencegroup_ai_provider_key">ai_provider</string>
+	<string name="preferencegroup_ai_provider_title">AI Provider</string>
+	<string name="preferencegroup_gemini_key">gemini_config</string>
+	<string name="preferencegroup_gemini_title">Google Gemini</string>
+	<string name="preferencegroup_ai_features_key">ai_features</string>
+	<string name="preferencegroup_ai_features_title">AI Features</string>
+	
+	<!-- Ollama Turbo Configuration -->
+	<string name="preferencegroup_ollama_turbo_key">ollama_turbo_config</string>
+	<string name="preferencegroup_ollama_turbo_title">Ollama Turbo (API)</string>
+	<string name="preference_ollama_turbo_apikey_key">ollama_turbo_apikey</string>
+	<string name="preference_ollama_turbo_apikey_title">Ollama API Key</string>
+	<string name="preference_ollama_turbo_apikey_description">Enter your Ollama API key for turbo models</string>
+	
+	<!-- Ollama Local Configuration -->
 	<string name="preferencegroup_ollama_key">ollama_config</string>
-	<string name="preferencegroup_ollama_title">Ollama Configuration</string>
+	<string name="preferencegroup_ollama_title">Ollama Local Server</string>
 	<string name="preference_ollama_hostname_key">ollama_hostname</string>
 	<string name="preference_ollama_hostname_title">Server Hostname</string>
 	<string name="preference_ollama_hostname_summary">Enter your Ollama server hostname or IP address</string>
@@ -637,7 +655,7 @@
 	<string name="preference_ollama_scan_models_title">Scan Available Models</string>
 	<string name="preference_ollama_scan_models_summary">Check server for available AI models</string>
 	
-	<!-- Default empty arrays for Ollama model ListPreference -->
+	<!-- Default empty arrays for Ollama model ListPreference - restored original -->
 	<string-array name="preference_ollama_model_entries">
 		<item>No models found - tap "Scan for models"</item>
 	</string-array>

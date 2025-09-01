@@ -508,7 +508,11 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 		 */
 		private void updateMemoryLimitSummary(androidx.preference.SeekBarPreference seekBarPreference) {
 			int currentValue = ConversationMemoryManager.getMessageLimit(getActivity());
-			seekBarPreference.setSummary("Store contextual information from the last " + currentValue + " messages per conversation");
+			String summary = "Store contextual information from the last " + currentValue + " messages";
+			if (currentValue > 500) {
+				summary += " ⚠️ Large values may take longer to process";
+			}
+			seekBarPreference.setSummary(summary);
 		}
 		
 		Preference.OnPreferenceClickListener deleteAttachmentsClickListener = preference -> {
@@ -595,6 +599,14 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 			//Returning true
 			return true;
 		};
+		
+		// AI Settings click listener
+		Preference.OnPreferenceClickListener aiSettingsClickListener = preference -> {
+			Intent intent = new Intent(getActivity(), PreferencesAI.class);
+			startActivity(intent);
+			return true;
+		};
+		
 		Preference.OnPreferenceChangeListener themeChangeListener = (preference, newValue) -> {
 			//Applying the dark mode
 			ThemeHelper.applyDarkMode((String) newValue);
@@ -839,6 +851,14 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 			findPreference(getResources().getString(R.string.preference_storage_deleteattachments_key)).setOnPreferenceClickListener(deleteAttachmentsClickListener);
 			findPreference(getResources().getString(R.string.preference_server_downloadmessages_key)).setOnPreferenceClickListener(syncMessagesClickListener);
 			
+			// AI Settings button
+			{
+				Preference aiSettingsPreference = findPreference(getResources().getString(R.string.preference_ai_settings_key));
+				if(aiSettingsPreference != null) {
+					aiSettingsPreference.setOnPreferenceClickListener(aiSettingsClickListener);
+				}
+			}
+			
 			//Setting up memory management click listener
 			{
 				Preference preference = findPreference(getResources().getString(R.string.preference_ai_memory_manage_key));
@@ -854,9 +874,22 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 					
 					// Listen for changes to update the summary
 					seekBarPreference.setOnPreferenceChangeListener((preference, newValue) -> {
-						// Update summary when value changes
+						// Round to nearest 10 for increment-like behavior
 						int value = (Integer) newValue;
-						seekBarPreference.setSummary("Store contextual information from the last " + value + " messages per conversation");
+						int roundedValue = Math.round(value / 10.0f) * 10;
+						
+						// Update summary with warning if needed
+						String summary = "Store contextual information from the last " + roundedValue + " messages";
+						if (roundedValue > 500) {
+							summary += " ⚠️ Large values may take longer to process";
+						}
+						seekBarPreference.setSummary(summary);
+						
+						// If we rounded the value, update the preference
+						if (roundedValue != value) {
+							seekBarPreference.setValue(roundedValue);
+						}
+						
 						return true;
 					});
 				}
@@ -1654,12 +1687,20 @@ public class Preferences extends AppCompatCompositeActivity implements Preferenc
 		return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.preference_features_replysuggestions_key), true);
 	}
 
+	public static boolean getPreferenceAIEnabled(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.preference_ai_enabled_key), false);
+	}
+	
 	public static String getPreferenceAIProvider(Context context) {
-		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_features_aiprovider_key), "ollama");
+		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_features_aiprovider_key), "gemini");
 	}
 	
 	public static String getPreferenceGeminiApiKey(Context context) {
 		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_features_gemini_apikey_key), "");
+	}
+	
+	public static String getPreferenceOllamaTurboApiKey(Context context) {
+		return PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.preference_ollama_turbo_apikey_key), "");
 	}
 
 	public static String getPreferenceOllamaHostname(Context context) {

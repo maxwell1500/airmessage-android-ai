@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">maxwell15000.ddns.net</domain>
-    </domain-config>
+    <!-- Allow HTTP traffic for user-configured Ollama servers -->
+    <!-- Users must configure their own Ollama server in settings -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- Trust preinstalled CAs -->
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
 </network-security-config>

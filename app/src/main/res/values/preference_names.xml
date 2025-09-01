@@ -49,11 +49,13 @@
 	<string name="preference_features_aiprovider_description">Choose your preferred AI service for smart features</string>
 	<string-array name="preference_features_aiprovider_entries">
 		<item>Ollama (Local)</item>
+		<item>Ollama Turbo (API)</item>
 		<item>Google Gemini</item>
 		<item>Disabled</item>
 	</string-array>
 	<string-array name="preference_features_aiprovider_values">
 		<item>ollama</item>
+		<item>ollama_turbo</item>
 		<item>gemini</item>
 		<item>disabled</item>
 	</string-array>

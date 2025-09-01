@@ -41,8 +41,8 @@ object SmartReplyHelper {
 	}
 	
 	/**
-	 * Generate a list of suggested replies using an automatically determined engine
-	 * Now prioritizes Gemini AI for enhanced context-aware responses
+	 * Generate a list of suggested replies using the user-selected AI provider
+	 * Respects the unified AI provider selection from settings
 	 * @param context The context to use
 	 * @param messages The messages to base the replies off of
 	 * @param conversationInfo The conversation metadata for better context
@@ -53,8 +53,16 @@ object SmartReplyHelper {
 	fun generateResponses(context: Context, messages: List<MessageInfo>, conversationInfo: ConversationInfo? = null): Single<List<AMConversationAction>> {
 		val sortedMessages = messages.sortedBy { it.date }
 		
-		// Try Gemini first for enhanced AI-powered responses
-		return if(conversationInfo != null && isGeminiAvailable()) {
+		// Check if AI features are enabled and use the selected provider
+		if (!me.tagavari.airmessage.activity.Preferences.getPreferenceAIEnabled(context)) {
+			// AI is disabled, fall back to classic approach
+			return fallbackToClassicApproach(context, sortedMessages)
+		}
+		
+		val aiProvider = me.tagavari.airmessage.activity.Preferences.getPreferenceAIProvider(context)
+		
+		// Use the selected AI provider for enhanced responses
+		return if(conversationInfo != null && (aiProvider == "gemini" || aiProvider == "ollama")) {
 			generateResponsesGemini(context, sortedMessages, conversationInfo)
 				.onErrorResumeNext { fallbackToClassicApproach(context, sortedMessages) }
 		} else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -140,20 +148,6 @@ object SmartReplyHelper {
 					.map { it.map { message -> AMConversationAction.createReplyAction(message) } }
 		} else {
 			Single.just(listOf())
-		}
-	}
-	
-	/**
-	 * Check if Gemini is available for use
-	 */
-	private fun isGeminiAvailable(): Boolean {
-		return try {
-			// Check if Firebase AI is available and properly configured
-			// This is a simple check - in production you might want more sophisticated validation
-			GeminiHelper.getInstance()
-			true
-		} catch (e: Exception) {
-			false
 		}
 	}
 }

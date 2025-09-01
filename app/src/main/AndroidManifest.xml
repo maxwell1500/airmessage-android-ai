@@ -129,6 +129,16 @@
 			<meta-data android:name="WindowManagerPreference:SuppressWindowControlNavigationButton" android:value="true" />
 		</activity>
 
+		<!-- AI Preferences -->
+		<activity
+			android:exported="false"
+			android:label="AI Settings"
+			android:name=".activity.PreferencesAI"
+			android:theme="@style/DayNight.NoActionBar.Protected"
+			android:parentActivityName=".activity.Preferences">
+			<meta-data android:name="WindowManagerPreference:SuppressWindowControlNavigationButton" android:value="true" />
+		</activity>
+
 		<!-- Server update -->
 		<activity
 			android:exported="false"
