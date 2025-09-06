@@ -191,6 +191,7 @@
 
 	<string name="message_permissionrejected">Permission request rejected</string>
 	<string name="message_permissiondetails_contacts_listing">Allow access to contacts to show names and pictures</string>
+	<string name="message_permissiondetails_notifications">Allow notifications to show new message alerts</string>
 	<string name="message_permissiondetails_contacts_suggestions">Allow access to contacts to get suggestions</string>
 	<string name="message_permissiondetails_microphone_missing">Missing permission to record audio</string>
 	<string name="message_permissiondetails_microphone_failedrequest">AirMessage must be able to record audio to send audio messages</string>

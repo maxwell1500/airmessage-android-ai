@@ -128,6 +128,7 @@ public class Conversations extends AppCompatCompositeActivity {
     private static final String savedInstanceStateArchived = "archived";
 
     private static final int permissionRequestContacts = 0;
+    private static final int permissionRequestNotifications = 1;
     private static final String keyFragmentSync = "fragment_sync";
 
     private static final int activityResultPlayServices = 0;
@@ -154,7 +155,7 @@ public class Conversations extends AppCompatCompositeActivity {
     private boolean isViewArchived;
     //Creating the view model and info bar values
     private ActivityViewModel viewModel;
-    private PluginMessageBar.InfoBar infoBarConnection, infoBarContacts, infoBarServerUpdate, infoBarServerUpdateRequired, infoBarSecurityUpdate;
+    private PluginMessageBar.InfoBar infoBarConnection, infoBarContacts, infoBarNotifications, infoBarServerUpdate, infoBarServerUpdateRequired, infoBarSecurityUpdate;
     //Creating the menu values
     private MenuItem menuItemMarkAllRead = null;
     //Creating the view values
@@ -343,6 +344,12 @@ public class Conversations extends AppCompatCompositeActivity {
         infoBarConnection = pluginMessageBar.create(R.drawable.disconnection, null);
         infoBarContacts = pluginMessageBar.create(R.drawable.contacts, getResources().getString(R.string.message_permissiondetails_contacts_listing));
         infoBarContacts.setButton(R.string.action_enable, view -> requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, permissionRequestContacts));
+        infoBarNotifications = pluginMessageBar.create(R.drawable.message_push, getResources().getString(R.string.message_permissiondetails_notifications));
+        infoBarNotifications.setButton(R.string.action_enable, view -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, permissionRequestNotifications);
+            }
+        });
         infoBarServerUpdate = pluginMessageBar.create(R.drawable.update, getResources().getString(R.string.message_serverupdate));
         infoBarServerUpdate.setButton(R.string.action_details, view -> startUpdateActivity());
         infoBarServerUpdateRequired = pluginMessageBar.create(R.drawable.sync_problem, getResources().getString(R.string.message_serverupdaterequired));
@@ -420,6 +427,17 @@ public class Conversations extends AppCompatCompositeActivity {
         //Updating the contacts info bar
         if (MainApplication.canUseContacts(this)) infoBarContacts.hide();
         else infoBarContacts.show();
+        
+        //Updating the notifications info bar
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                infoBarNotifications.hide();
+            } else {
+                infoBarNotifications.show();
+            }
+        } else {
+            infoBarNotifications.hide();
+        }
 
         //Updating the "mark as read" control
         updateMarkAllRead();
@@ -541,6 +559,26 @@ public class Conversations extends AppCompatCompositeActivity {
 
                 //Starting the update listener
                 MainApplication.getInstance().registerContactsListener();
+            }
+            //Otherwise checking if the result is a denial
+            else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+                //Showing a snackbar
+                Snackbar.make(findViewById(R.id.root), R.string.message_permissionrejected, Snackbar.LENGTH_LONG)
+                        .setAction(R.string.screen_settings, view -> {
+                            //Opening the application settings
+                            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        })
+                        .show();
+            }
+        }
+        //Checking if the request code is notification access
+        else if (requestCode == permissionRequestNotifications) {
+            //Checking if the result is a success
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                //Hiding the notification request info bar
+                infoBarNotifications.hide();
             }
             //Otherwise checking if the result is a denial
             else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {

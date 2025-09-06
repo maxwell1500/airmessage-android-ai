@@ -184,7 +184,7 @@ object NotificationHelper {
 		if(Conversations.isForeground() || sender == null || Messaging.getForegroundConversations().contains(conversationInfo.localID) || ConnectionService.getConnectionManager().let {it != null && it.isMassRetrievalInProgress}) return
 		
 		//Returning if notifications are disabled or the conversation is muted
-		if(Build.VERSION.SDK_INT < Build.VERSION_CODES.O && !PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.resources.getString(R.string.preference_messagenotifications_getnotifications_key), false) || conversationInfo.isMuted) return
+		if(Build.VERSION.SDK_INT < Build.VERSION_CODES.O && !PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.resources.getString(R.string.preference_messagenotifications_getnotifications_key), true) || conversationInfo.isMuted) return
 		
 		//Adding the message
 		addMessageToNotification(context, conversationInfo, message, sender, timestamp, null)
